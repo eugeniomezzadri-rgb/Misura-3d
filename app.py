@@ -200,7 +200,7 @@ if file_caricato is not None:
         
         # 1. Aggiunta Sfere Target (Blu)
         for pt in target_pts:
-            fig.add_trace(create_sphere_mesh(pt[0], pt[1], pt[2], radius=0.6, color='blue'))
+            fig.add_trace(create_sphere_mesh(pt[0], pt[1], pt[2], radius=0.3, color='blue'))
             
         # Testo sopra i punti target
         fig.add_trace(go.Scatter3d(
