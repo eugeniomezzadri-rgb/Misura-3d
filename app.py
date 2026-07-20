@@ -29,7 +29,7 @@ def create_sphere_mesh(x, y, z, radius=0.4, color='green', resolution=15):
         alphahull=0,
         color=color,
         flatshading=False,  # Attiva lo smoothing delle facce geometriche
-        lighting=dict(ambient=0.6, diffuse=0.8, specular=0.5, roughness=0.3, facenormals=False),
+        lighting=dict(ambient=0.6, diffuse=0.8, specular=0.5, roughness=0.3),
         showlegend=False,
         hoverinfo='skip'
     )
