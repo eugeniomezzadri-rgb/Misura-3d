@@ -242,3 +242,22 @@ if file_caricato is not None:
         )
         
         st.plotly_chart(fig, use_container_width=True)
+        # --- TABELLA DATI ---
+        st.markdown("---")
+        st.subheader("📋 Dettaglio Punti e Scostamenti")
+        
+        # Creiamo una tabella arricchita con gli errori calcolati in tempo reale
+        df_tabella = df.copy()
+        df_tabella["Errore_3D (mm)"] = errori_3d
+        df_tabella["Stato"] = ["✅ OK" if err <= tolleranza else "❌ KO" for err in errori_3d]
+        
+        # Mostriamo la tabella interattiva
+        st.dataframe(
+            df_tabella.style.format({
+                "Real_X": "{:.4f}", "Real_Y": "{:.4f}", "Real_Z": "{:.4f}",
+                "Target_X": "{:.4f}", "Target_Y": "{:.4f}", "Target_Z": "{:.4f}",
+                "Errore_3D (mm)": "{:.4f}"
+            }),
+            use_container_width=True,
+            hide_index=True
+        )
