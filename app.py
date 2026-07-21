@@ -206,7 +206,7 @@ if uploaded_file is not None:
         if 'best_fit_active' not in st.session_state:
             st.session_state.best_fit_active = False
 
-        # --- CALLBACKS PER I PULSANTI ---
+        # --- CALLBACKS PER I PULSANTI CON ST.RERUN() ---
         def attiva_best_fit():
             st.session_state.best_fit_active = True
             st.session_state.dx = 0.0
@@ -215,6 +215,7 @@ if uploaded_file is not None:
             st.session_state.rx = 0.0
             st.session_state.ry = 0.0
             st.session_state.rz = 0.0
+            st.rerun()
 
         def reset_tutto():
             st.session_state.best_fit_active = False
@@ -224,6 +225,7 @@ if uploaded_file is not None:
             st.session_state.rx = 0.0
             st.session_state.ry = 0.0
             st.session_state.rz = 0.0
+            st.rerun()
 
         # --- SIDEBAR: PARAMETRI E CONTROLLI ---
         st.sidebar.header("⚙️ Parametri & Tolleranza")
