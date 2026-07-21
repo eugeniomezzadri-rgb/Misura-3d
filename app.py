@@ -260,7 +260,7 @@ if uploaded_file is not None:
 
         fig.add_trace(go.Scatter3d(
             x=real_pts[:, 0], y=real_pts[:, 1], z=real_pts[:, 2],
-            mode='markers',
+            mode='markers + text',
             marker=dict(size=5, color=point_colors),
             name='Punti Reali (OK/KO)'
         ))
