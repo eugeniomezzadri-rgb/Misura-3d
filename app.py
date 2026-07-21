@@ -73,7 +73,7 @@ def parse_cmm_txt(content_str):
     return pd.DataFrame(data)
 
 # --- FUNZIONE GENERAZIONE PDF ---
-def genera_pdf(df_tabella, fig, nome_file="Report_CMM"):
+def genera_pdf(df_tabella, fig, errore_rms, nome_file="Report_CMM"):
     pdf = FPDF(orientation="L", unit="mm", format="A4")
     pdf.set_auto_page_break(auto=False, margin=0)
     pdf.add_page()
@@ -83,7 +83,7 @@ def genera_pdf(df_tabella, fig, nome_file="Report_CMM"):
     
     data_oggi = datetime.datetime.now().strftime("%d/%m/%Y")
     pdf.set_font("helvetica", "I", 10)
-    pdf.cell(0, 6, f"File: {nome_file}  |  Data: {data_oggi}", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 6, f"File: {nome_file}  |  Data: {data_oggi}  |  RMS Globale: {errore_rms:.4f} mm", align="C", new_x="LMARGIN", new_y="NEXT")
 
     fig_top = go.Figure(fig)
     fig_top.update_layout(
@@ -242,8 +242,12 @@ if uploaded_file is not None:
         rotated_pts = r.apply(aligned_pts - centroid) + centroid
         real_pts = rotated_pts + np.array([dx, dy, dz])
 
-        # Calcolo errori 3D finali
+        # Calcolo errori 3D e RMS Globale
         errori_3d = np.linalg.norm(target_pts - real_pts, axis=1)
+        errore_rms = np.sqrt(np.mean(errori_3d ** 2))
+
+        # Visualizzazione Metrica RMS Globale in evidenza
+        st.metric(label="📉 Errore RMS Globale", value=f"{errore_rms:.4f} mm")
 
         # Definizione colori dinamici in base alla tolleranza (Verde = OK, Rosso = KO)
         point_colors = ['#2ecc71' if err <= tolleranza else '#e74c3c' for err in errori_3d]
@@ -304,7 +308,7 @@ if uploaded_file is not None:
         
         if st.button("🔧 Prepara PDF (Immagine + Dati)"):
             with st.spinner("Generazione PDF in corso..."):
-                st.session_state.pdf_data = genera_pdf(df_tabella, fig, nome_file=uploaded_file.name)
+                st.session_state.pdf_data = genera_pdf(df_tabella, fig, errore_rms, nome_file=uploaded_file.name)
                 
         if "pdf_data" in st.session_state:
             st.download_button(
