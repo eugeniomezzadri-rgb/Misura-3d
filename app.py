@@ -4,7 +4,6 @@ import pandas as pd
 import plotly.graph_objects as go
 from scipy.spatial.transform import Rotation as R
 import re
-import io
 import tempfile
 import datetime
 from fpdf import FPDF
@@ -75,7 +74,7 @@ def parse_cmm_txt(content_str):
 
 # --- FUNZIONE GENERAZIONE PDF ---
 def genera_pdf(df_tabella, fig, nome_file="Report_CMM"):
-    pdf = FPDF(orientation="L", unit="mm", format="A4") # A4 Landscape
+    pdf = FPDF(orientation="L", unit="mm", format="A4")
     pdf.set_auto_page_break(auto=False, margin=0)
     pdf.add_page()
     
@@ -209,20 +208,20 @@ if uploaded_file is not None:
             ["Best-Fit 3D (Kabsch Automatico)", "Manuale (XYZABC)", "Nessun Allineamento (Grezzo)"]
         )
 
-        # Selettori per modifiche manuali XYZABC
+        # Slider per modifiche manuali XYZABC
         dx, dy, dz = 0.0, 0.0, 0.0
         rx, ry, rz = 0.0, 0.0, 0.0
         
         if alignment_mode == "Manuale (XYZABC)":
             st.sidebar.subheader("Traslazioni (mm)")
-            dx = st.sidebar.number_input("Delta X", value=0.0, step=0.1)
-            dy = st.sidebar.number_input("Delta Y", value=0.0, step=0.1)
-            dz = st.sidebar.number_input("Delta Z", value=0.0, step=0.1)
+            dx = st.sidebar.slider("Delta X", -20.0, 20.0, 0.0, 0.05)
+            dy = st.sidebar.slider("Delta Y", -20.0, 20.0, 0.0, 0.05)
+            dz = st.sidebar.slider("Delta Z", -20.0, 20.0, 0.0, 0.05)
             
             st.sidebar.subheader("Rotazioni (°)")
-            rx = st.sidebar.number_input("Rotazione A (X)", value=0.0, step=0.5)
-            ry = st.sidebar.number_input("Rotazione B (Y)", value=0.0, step=0.5)
-            rz = st.sidebar.number_input("Rotazione C (Z)", value=0.0, step=0.5)
+            rx = st.sidebar.slider("Rotazione A (X)", -45.0, 45.0, 0.0, 0.1)
+            ry = st.sidebar.slider("Rotazione B (Y)", -45.0, 45.0, 0.0, 0.1)
+            rz = st.sidebar.slider("Rotazione C (Z)", -45.0, 45.0, 0.0, 0.1)
 
         # Estrazione coordinate di base
         target_pts = df[['Target_X', 'Target_Y', 'Target_Z']].values
@@ -232,7 +231,6 @@ if uploaded_file is not None:
         if alignment_mode == "Best-Fit 3D (Kabsch Automatico)":
             real_pts = best_fit_alignment(raw_real_pts, target_pts)
         elif alignment_mode == "Manuale (XYZABC)":
-            # Applica prima le rotazioni (attorno al baricentro dei punti reali) e poi le traslazioni
             centroid = np.mean(raw_real_pts, axis=0)
             r = R.from_euler('xyz', [rx, ry, rz], degrees=True)
             rotated_pts = r.apply(raw_real_pts - centroid) + centroid
@@ -243,6 +241,9 @@ if uploaded_file is not None:
         # Calcolo errori 3D post-allineamento
         errori_3d = np.linalg.norm(target_pts - real_pts, axis=1)
 
+        # Definizione colori in base alla tolleranza (Verde = OK, Rosso = KO)
+        point_colors = ['#2ecc71' if err <= tolleranza else '#e74c3c' for err in errori_3d]
+
         # Costruzione Grafico 3D
         fig = go.Figure()
 
@@ -252,8 +253,8 @@ if uploaded_file is not None:
         fig.add_trace(go.Scatter3d(
             x=real_pts[:, 0], y=real_pts[:, 1], z=real_pts[:, 2],
             mode='markers',
-            marker=dict(size=4, color='red'),
-            name='Punti Reali (Allineati)'
+            marker=dict(size=5, color=point_colors),
+            name='Punti Reali (OK/KO)'
         ))
 
         for t_pt, r_pt in zip(target_pts, real_pts):
