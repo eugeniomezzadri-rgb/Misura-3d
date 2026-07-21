@@ -17,9 +17,6 @@ for k in ['dx', 'dy', 'dz', 'rx', 'ry', 'rz']:
     if k not in st.session_state:
         st.session_state[k] = 0.0
 
-if 'best_fit_active' not in st.session_state:
-    st.session_state.best_fit_active = False
-
 # --- CALLBACKS PER I PULSANTI ---
 def azzera_slider():
     st.session_state.dx = 0.0
@@ -29,13 +26,44 @@ def azzera_slider():
     st.session_state.ry = 0.0
     st.session_state.rz = 0.0
 
-def cb_best_fit():
-    # Attiva l'algoritmo ma NON azzera gli slider, mantenendo le tue correzioni manuali
-    st.session_state.best_fit_active = True
+def cb_best_fit(df_local):
+    """
+    Calcola l'allineamento ideale (Kabsch) e inietta i risultati 
+    negli slider per mostrarli all'utente.
+    """
+    target_pts = df_local[['Target_X', 'Target_Y', 'Target_Z']].values
+    raw_real_pts = df_local[['Real_X', 'Real_Y', 'Real_Z']].values
+    
+    centroid_real = np.mean(raw_real_pts, axis=0)
+    centroid_target = np.mean(target_pts, axis=0)
+    
+    p_centered = raw_real_pts - centroid_real
+    q_centered = target_pts - centroid_target
+    
+    H = p_centered.T @ q_centered
+    U, S, Vt = np.linalg.svd(H)
+    
+    if np.linalg.det(Vt.T @ U.T) < 0:
+        Vt[-1, :] *= -1
+        
+    rot_matrix = Vt.T @ U.T
+    
+    # Estrazione angoli di Eulero dalla matrice di rotazione
+    r = R.from_matrix(rot_matrix)
+    rx, ry, rz = r.as_euler('xyz', degrees=True)
+    
+    # La traslazione è semplicemente la differenza tra i centroidi
+    dx, dy, dz = centroid_target - centroid_real
+    
+    # Aggiorna gli slider
+    st.session_state.dx = float(dx)
+    st.session_state.dy = float(dy)
+    st.session_state.dz = float(dz)
+    st.session_state.rx = float(rx)
+    st.session_state.ry = float(ry)
+    st.session_state.rz = float(rz)
 
 def cb_reset():
-    # Disattiva l'algoritmo e riporta tutti gli slider a 0
-    st.session_state.best_fit_active = False
     azzera_slider()
 
 # --- FUNZIONI DI SUPPORTO GEOMETRICO ---
@@ -53,18 +81,6 @@ def create_sphere_mesh(x, y, z, radius=0.5, color='blue', n_subdiv=10):
         lighting=dict(ambient=0.6, diffuse=0.4),
         hoverinfo='skip'
     )
-
-def best_fit_alignment(real_pts, target_pts):
-    centroid_real = np.mean(real_pts, axis=0)
-    centroid_target = np.mean(target_pts, axis=0)
-    p_centered = real_pts - centroid_real
-    q_centered = target_pts - centroid_target
-    H = p_centered.T @ q_centered
-    U, S, Vt = np.linalg.svd(H)
-    if np.linalg.det(Vt.T @ U.T) < 0:
-        Vt[-1, :] *= -1
-    rot_matrix = Vt.T @ U.T
-    return (p_centered @ rot_matrix.T) + centroid_target
 
 def parse_cmm_txt(content_str):
     blocks = content_str.split("3D POINT PROBING - MEASURING LOG")
@@ -87,7 +103,7 @@ def parse_cmm_txt(content_str):
 # --- CARICAMENTO E CACHING DATI ---
 @st.cache_data
 def load_data(file_obj):
-    file_obj.seek(0)  # Ripristina sempre il cursore all'inizio del file
+    file_obj.seek(0)
     ext = file_obj.name.split('.')[-1].lower()
     if ext == 'csv':
         df = pd.read_csv(file_obj)
@@ -107,21 +123,17 @@ def genera_pdf(df_tabella, fig, errore_rms, dx, dy, dz, rx, ry, rz, nome_file="R
         pdf.set_auto_page_break(auto=False, margin=0)
         pdf.add_page()
         
-        # Titolo
         pdf.set_font("helvetica", "B", 16)
         pdf.cell(0, 10, "Report CMM Best-Fit 3D", align="C", new_x="LMARGIN", new_y="NEXT")
         
-        # Intestazione Generale
         data_oggi = datetime.datetime.now().strftime("%d/%m/%Y")
         pdf.set_font("helvetica", "I", 10)
         pdf.cell(0, 6, f"File: {nome_file}  |  Data: {data_oggi}  |  RMS Globale: {errore_rms:.4f} mm", align="C", new_x="LMARGIN", new_y="NEXT")
         
-        # Intestazione Correzioni Manuali
         pdf.set_font("helvetica", "", 9)
-        testo_correzioni = f"Correzioni manuali - Offset (mm): dX={dx:.4f} | dY={dy:.4f} | dZ={dz:.4f}   --   Rotazioni (°): rx={rx:.3f} | ry={ry:.3f} | rz={rz:.3f}"
+        testo_correzioni = f"Correzioni applicate - Offset (mm): dX={dx:.4f} | dY={dy:.4f} | dZ={dz:.4f}   --   Rotazioni (°): rx={rx:.3f} | ry={ry:.3f} | rz={rz:.3f}"
         pdf.cell(0, 6, testo_correzioni, align="C", new_x="LMARGIN", new_y="NEXT")
 
-        # Generazione Immagine Plotly
         fig_top = go.Figure(fig)
         fig_top.update_layout(
             scene_camera=dict(eye=dict(x=0, y=0.01, z=2.5), up=dict(x=0, y=1, z=0)),
@@ -133,10 +145,8 @@ def genera_pdf(df_tabella, fig, errore_rms, dx, dy, dz, rx, ry, rz, nome_file="R
             tmp_file.write(img_bytes)
             tmp_path = tmp_file.name
 
-        # Inserimento Immagine nel PDF
         pdf.image(tmp_path, x=10, y=38, w=125)
 
-        # Disegno Tabella (allargata a 4 cifre decimali)
         start_y = 38
         left_table_margin = 140
         pdf.set_xy(left_table_margin, start_y)
@@ -216,11 +226,13 @@ if uploaded_file is not None:
         st.sidebar.markdown("---")
         st.sidebar.header("🎯 Best-Fit & Reset")
         col_b1, col_b2 = st.sidebar.columns(2)
-        col_b1.button("Esegui Best-Fit", on_click=cb_best_fit)
+        
+        # Ora passiamo il DataFrame al callback in modo che possa calcolare i valori
+        col_b1.button("Esegui Best-Fit", on_click=cb_best_fit, args=(df,))
         col_b2.button("Reset", on_click=cb_reset)
 
         st.sidebar.markdown("---")
-        st.sidebar.header("🎛️ Aggiustamenti Manuali")
+        st.sidebar.header("🎛️ Aggiustamenti & Visualizzazione")
         dx = st.sidebar.slider("Delta X (mm)", -20.0, 20.0, key="dx", step=0.0005, format="%.4f")
         dy = st.sidebar.slider("Delta Y (mm)", -20.0, 20.0, key="dy", step=0.0005, format="%.4f")
         dz = st.sidebar.slider("Delta Z (mm)", -20.0, 20.0, key="dz", step=0.0005, format="%.4f")
@@ -229,14 +241,15 @@ if uploaded_file is not None:
         rz = st.sidebar.slider("Rotazione C (°)", -45.0, 45.0, key="rz", step=0.001, format="%.3f")
 
         # --- CALCOLI GEOMETRICI ---
+        # Adesso i punti vengono spostati ESCLUSIVAMENTE tramite i valori degli slider
         target_pts = df[['Target_X', 'Target_Y', 'Target_Z']].values
         raw_real_pts = df[['Real_X', 'Real_Y', 'Real_Z']].values
 
-        aligned_pts = best_fit_alignment(raw_real_pts, target_pts) if st.session_state.best_fit_active else raw_real_pts.copy()
-
-        centroid = np.mean(aligned_pts, axis=0)
+        centroid = np.mean(raw_real_pts, axis=0)
         r = R.from_euler('xyz', [rx, ry, rz], degrees=True)
-        real_pts = (r.apply(aligned_pts - centroid) + centroid) + np.array([dx, dy, dz])
+        
+        # Applicazione della rotazione e traslazione (guidata dagli slider)
+        real_pts = (r.apply(raw_real_pts - centroid) + centroid) + np.array([dx, dy, dz])
 
         errori_3d = np.linalg.norm(target_pts - real_pts, axis=1)
         errore_rms = np.sqrt(np.mean(errori_3d ** 2))
