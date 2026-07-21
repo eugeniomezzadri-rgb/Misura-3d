@@ -200,7 +200,7 @@ if uploaded_file is not None:
 
         # --- SIDEBAR: PARAMETRI E CONTROLLI ---
         st.sidebar.header("⚙️ Parametri & Tolleranza")
-        tolleranza = st.sidebar.number_input("Tolleranza Errore 3D (mm)", value=0.05, step=0.05)
+        tolleranza = st.sidebar.number_input("Tolleranza Errore 3D (mm)", value=0.25, step=0.05)
 
         st.sidebar.markdown("---")
         st.sidebar.header("🎯 Pulsante Best-Fit")
@@ -274,7 +274,12 @@ if uploaded_file is not None:
             ))
 
         fig.update_layout(
-            scene=dict(xaxis_title='Asse X (mm)', yaxis_title='Asse Y (mm)', zaxis_title='Asse Z (mm)'),
+            scene=dict(
+                xaxis_title='Asse X (mm)', 
+                yaxis_title='Asse Y (mm)', 
+                zaxis_title='Asse Z (mm)',
+                aspectmode='data'  # <-- Mantiene le proporzioni reali dei dati in 3D
+            ),
             margin=dict(l=0, r=0, b=0, t=30),
             height=600
         )
