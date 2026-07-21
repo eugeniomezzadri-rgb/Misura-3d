@@ -30,10 +30,11 @@ def azzera_slider():
     st.session_state.rz = 0.0
 
 def cb_best_fit():
+    # Attiva l'algoritmo ma NON azzera gli slider, mantenendo le tue correzioni manuali
     st.session_state.best_fit_active = True
-    azzera_slider()
 
 def cb_reset():
+    # Disattiva l'algoritmo e riporta tutti gli slider a 0
     st.session_state.best_fit_active = False
     azzera_slider()
 
@@ -135,7 +136,7 @@ def genera_pdf(df_tabella, fig, errore_rms, dx, dy, dz, rx, ry, rz, nome_file="R
         # Inserimento Immagine nel PDF
         pdf.image(tmp_path, x=10, y=38, w=125)
 
-        # Disegno Tabella
+        # Disegno Tabella (allargata a 4 cifre decimali)
         start_y = 38
         left_table_margin = 140
         pdf.set_xy(left_table_margin, start_y)
