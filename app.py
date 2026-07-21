@@ -198,6 +198,14 @@ if uploaded_file is not None:
         if 'Punto' not in df.columns:
             df['Punto'] = range(1, len(df) + 1)
 
+        # --- INIZIALIZZAZIONE SESSION STATE PER SLIDER E BEST-FIT ---
+        for k, default_val in [('dx', 0.0), ('dy', 0.0), ('dz', 0.0), ('rx', 0.0), ('ry', 0.0), ('rz', 0.0)]:
+            if k not in st.session_state:
+                st.session_state[k] = default_val
+
+        if 'best_fit_active' not in st.session_state:
+            st.session_state.best_fit_active = False
+
         # --- SIDEBAR: PARAMETRI E CONTROLLI ---
         st.sidebar.header("⚙️ Parametri & Tolleranza")
         tolleranza = st.sidebar.number_input("Tolleranza Errore 3D (mm)", value=0.05, step=0.01)
@@ -205,26 +213,36 @@ if uploaded_file is not None:
         st.sidebar.markdown("---")
         st.sidebar.header("🎯 Pulsante Best-Fit")
         
-        if 'best_fit_active' not in st.session_state:
-            st.session_state.best_fit_active = False
-
         col_b1, col_b2 = st.sidebar.columns(2)
         with col_b1:
             if st.button("Esegui Best-Fit"):
                 st.session_state.best_fit_active = True
+                # Azzera i valori manuali quando si attiva il Best-Fit
+                st.session_state.dx = 0.0
+                st.session_state.dy = 0.0
+                st.session_state.dz = 0.0
+                st.session_state.rx = 0.0
+                st.session_state.ry = 0.0
+                st.session_state.rz = 0.0
         with col_b2:
             if st.button("Reset"):
                 st.session_state.best_fit_active = False
+                st.session_state.dx = 0.0
+                st.session_state.dy = 0.0
+                st.session_state.dz = 0.0
+                st.session_state.rx = 0.0
+                st.session_state.ry = 0.0
+                st.session_state.rz = 0.0
 
         st.sidebar.markdown("---")
         st.sidebar.header("🎛️ Aggiustamenti Manuali (XYZABC)")
-        dx = st.sidebar.slider("Delta X (mm)", -20.0, 20.0, 0.0, 0.05)
-        dy = st.sidebar.slider("Delta Y (mm)", -20.0, 20.0, 0.0, 0.05)
-        dz = st.sidebar.slider("Delta Z (mm)", -20.0, 20.0, 0.0, 0.05)
+        dx = st.sidebar.slider("Delta X (mm)", -20.0, 20.0, key="dx", step=0.05)
+        dy = st.sidebar.slider("Delta Y (mm)", -20.0, 20.0, key="dy", step=0.05)
+        dz = st.sidebar.slider("Delta Z (mm)", -20.0, 20.0, key="dz", step=0.05)
         
-        rx = st.sidebar.slider("Rotazione A (°)", -45.0, 45.0, 0.0, 0.1)
-        ry = st.sidebar.slider("Rotazione B (°)", -45.0, 45.0, 0.0, 0.1)
-        rz = st.sidebar.slider("Rotazione C (°)", -45.0, 45.0, 0.0, 0.1)
+        rx = st.sidebar.slider("Rotazione A (°)", -45.0, 45.0, key="rx", step=0.1)
+        ry = st.sidebar.slider("Rotazione B (°)", -45.0, 45.0, key="ry", step=0.1)
+        rz = st.sidebar.slider("Rotazione C (°)", -45.0, 45.0, key="rz", step=0.1)
 
         # Estrazione coordinate di base
         target_pts = df[['Target_X', 'Target_Y', 'Target_Z']].values
