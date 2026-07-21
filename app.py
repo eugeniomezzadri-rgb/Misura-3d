@@ -48,7 +48,6 @@ def best_fit_alignment(real_pts, target_pts):
         Vt[-1, :] *= -1
         
     rot_matrix = Vt.T @ U.T
-    
     aligned_pts = (p_centered @ rot_matrix.T) + centroid_target
     return aligned_pts
 
@@ -57,7 +56,7 @@ def parse_cmm_txt(content_str):
     blocks = content_str.split("3D POINT PROBING - MEASURING LOG")
     data = []
     
-    for i, block in enumerate(blocks):
+    for block in blocks:
         real_match = re.search(r'REAL:\s+X\s+([-\d.]+)\s+Y\s+([-\d.]+)\s+Z\s+([-\d.]+)', block)
         target_match = re.search(r'TARGET:\s+X\s+([-\d.]+)\s+Y\s+([-\d.]+)\s+Z\s+([-\d.]+)', block)
         
@@ -75,7 +74,7 @@ def parse_cmm_txt(content_str):
     return pd.DataFrame(data)
 
 # --- FUNZIONE GENERAZIONE PDF ---
-def genera_pdf(df_tabella, fig, nome_file="Report_CMM.txt"):
+def genera_pdf(df_tabella, fig, nome_file="Report_CMM"):
     pdf = FPDF(orientation="L", unit="mm", format="A4") # A4 Landscape
     pdf.set_auto_page_break(auto=False, margin=0)
     pdf.add_page()
@@ -176,7 +175,7 @@ if uploaded_file is not None:
     else:
         st.success(f"File '{uploaded_file.name}' caricato con successo! Trovati {len(df)} punti.")
 
-        # --- NORMALIZZAZIONE INTELLIGENTE DELLE COLONNE (per CSV/XLSX) ---
+        # --- NORMALIZZAZIONE INTELLIGENTE DELLE COLONNE ---
         rename_mapping = {}
         for col in df.columns:
             c_clean = str(col).strip().lower()
@@ -200,16 +199,46 @@ if uploaded_file is not None:
         if 'Punto' not in df.columns:
             df['Punto'] = range(1, len(df) + 1)
 
-        # Sidebar per la tolleranza
-        st.sidebar.header("Parametri di Controllo")
+        # --- SIDEBAR: PARAMETRI E CONTROLLI ---
+        st.sidebar.header("⚙️ Parametri & Allineamento")
+        
         tolleranza = st.sidebar.number_input("Tolleranza Errore 3D (mm)", value=0.25, step=0.05)
+        
+        alignment_mode = st.sidebar.radio(
+            "Seleziona Modalità Allineamento",
+            ["Best-Fit 3D (Kabsch Automatico)", "Manuale (XYZABC)", "Nessun Allineamento (Grezzo)"]
+        )
 
-        # Estrazione coordinate
+        # Selettori per modifiche manuali XYZABC
+        dx, dy, dz = 0.0, 0.0, 0.0
+        rx, ry, rz = 0.0, 0.0, 0.0
+        
+        if alignment_mode == "Manuale (XYZABC)":
+            st.sidebar.subheader("Traslazioni (mm)")
+            dx = st.sidebar.number_input("Delta X", value=0.0, step=0.1)
+            dy = st.sidebar.number_input("Delta Y", value=0.0, step=0.1)
+            dz = st.sidebar.number_input("Delta Z", value=0.0, step=0.1)
+            
+            st.sidebar.subheader("Rotazioni (°)")
+            rx = st.sidebar.number_input("Rotazione A (X)", value=0.0, step=0.5)
+            ry = st.sidebar.number_input("Rotazione B (Y)", value=0.0, step=0.5)
+            rz = st.sidebar.number_input("Rotazione C (Z)", value=0.0, step=0.5)
+
+        # Estrazione coordinate di base
         target_pts = df[['Target_X', 'Target_Y', 'Target_Z']].values
         raw_real_pts = df[['Real_X', 'Real_Y', 'Real_Z']].values
 
-        # Esegue il Best-Fit (Kabsch con Scipy)
-        real_pts = best_fit_alignment(raw_real_pts, target_pts)
+        # Applicazione dell'allineamento scelto
+        if alignment_mode == "Best-Fit 3D (Kabsch Automatico)":
+            real_pts = best_fit_alignment(raw_real_pts, target_pts)
+        elif alignment_mode == "Manuale (XYZABC)":
+            # Applica prima le rotazioni (attorno al baricentro dei punti reali) e poi le traslazioni
+            centroid = np.mean(raw_real_pts, axis=0)
+            r = R.from_euler('xyz', [rx, ry, rz], degrees=True)
+            rotated_pts = r.apply(raw_real_pts - centroid) + centroid
+            real_pts = rotated_pts + np.array([dx, dy, dz])
+        else:
+            real_pts = raw_real_pts.copy()
 
         # Calcolo errori 3D post-allineamento
         errori_3d = np.linalg.norm(target_pts - real_pts, axis=1)
@@ -248,6 +277,9 @@ if uploaded_file is not None:
         st.subheader("📋 Dettaglio Punti e Scostamenti")
         
         df_tabella = df.copy()
+        df_tabella["Real_X"] = real_pts[:, 0]
+        df_tabella["Real_Y"] = real_pts[:, 1]
+        df_tabella["Real_Z"] = real_pts[:, 2]
         df_tabella["Errore_3D (mm)"] = errori_3d
         df_tabella["Stato"] = ["✅ OK" if err <= tolleranza else "❌ KO" for err in errori_3d]
         
