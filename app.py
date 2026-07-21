@@ -206,6 +206,25 @@ if uploaded_file is not None:
         if 'best_fit_active' not in st.session_state:
             st.session_state.best_fit_active = False
 
+        # --- CALLBACKS PER I PULSANTI ---
+        def attiva_best_fit():
+            st.session_state.best_fit_active = True
+            st.session_state.dx = 0.0
+            st.session_state.dy = 0.0
+            st.session_state.dz = 0.0
+            st.session_state.rx = 0.0
+            st.session_state.ry = 0.0
+            st.session_state.rz = 0.0
+
+        def reset_tutto():
+            st.session_state.best_fit_active = False
+            st.session_state.dx = 0.0
+            st.session_state.dy = 0.0
+            st.session_state.dz = 0.0
+            st.session_state.rx = 0.0
+            st.session_state.ry = 0.0
+            st.session_state.rz = 0.0
+
         # --- SIDEBAR: PARAMETRI E CONTROLLI ---
         st.sidebar.header("⚙️ Parametri & Tolleranza")
         tolleranza = st.sidebar.number_input("Tolleranza Errore 3D (mm)", value=0.05, step=0.01)
@@ -215,24 +234,9 @@ if uploaded_file is not None:
         
         col_b1, col_b2 = st.sidebar.columns(2)
         with col_b1:
-            if st.button("Esegui Best-Fit"):
-                st.session_state.best_fit_active = True
-                # Azzera i valori manuali quando si attiva il Best-Fit
-                st.session_state.dx = 0.0
-                st.session_state.dy = 0.0
-                st.session_state.dz = 0.0
-                st.session_state.rx = 0.0
-                st.session_state.ry = 0.0
-                st.session_state.rz = 0.0
+            st.button("Esegui Best-Fit", on_click=attiva_best_fit)
         with col_b2:
-            if st.button("Reset"):
-                st.session_state.best_fit_active = False
-                st.session_state.dx = 0.0
-                st.session_state.dy = 0.0
-                st.session_state.dz = 0.0
-                st.session_state.rx = 0.0
-                st.session_state.ry = 0.0
-                st.session_state.rz = 0.0
+            st.button("Reset", on_click=reset_tutto)
 
         st.sidebar.markdown("---")
         st.sidebar.header("🎛️ Aggiustamenti Manuali (XYZABC)")
