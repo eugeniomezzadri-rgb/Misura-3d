@@ -125,14 +125,28 @@ def resetta_offset():
     for var in ['tx', 'ty', 'tz', 'rx', 'ry', 'rz']:
         st.session_state[var] = 0.0
 
-         # --- GENERAZIONE PDF (SINGOLA PAGINA) ---
-def genera_pdf(df_tabella, fig):
+         import tempfile
+import datetime
+from fpdf import FPDF
+import plotly.graph_objects as go
+
+# --- GENERAZIONE PDF (SINGOLA PAGINA FORZATA) ---
+def genera_pdf(df_tabella, fig, nome_file="Dati_Misurazione.csv"):
     pdf = FPDF(orientation="L", unit="mm", format="A4") # A4 Landscape
+    
+    # 🔴 IL FIX: Disabilita il salto pagina automatico per forzare tutto su un foglio!
+    pdf.set_auto_page_break(auto=False, margin=0)
+    
     pdf.add_page()
     
     # Titolo
     pdf.set_font("helvetica", "B", 16)
     pdf.cell(0, 10, "Report CMM Best-Fit 3D", align="C", new_x="LMARGIN", new_y="NEXT")
+    
+    # Sottotitolo (Nome File e Data)
+    data_oggi = datetime.datetime.now().strftime("%d/%m/%Y")
+    pdf.set_font("helvetica", "I", 10)
+    pdf.cell(0, 6, f"File: {nome_file}  |  Data: {data_oggi}", align="C", new_x="LMARGIN", new_y="NEXT")
 
     # 1. Configurazione Telecamera per vista Z+ (dall'alto)
     fig_top = go.Figure(fig)
@@ -151,19 +165,19 @@ def genera_pdf(df_tabella, fig):
         tmp_file.write(img_bytes)
         tmp_path = tmp_file.name
 
-    # Inserisce l'immagine nella metà di sinistra del PDF
-    pdf.image(tmp_path, x=10, y=30, w=130)
+    # Inserisce l'immagine nella metà di sinistra del PDF (leggermente più in basso per il sottotitolo)
+    pdf.image(tmp_path, x=10, y=32, w=130)
 
     # 2. Configurazione Tabella Autoadattiva
-    start_y = 30
+    start_y = 32
     left_table_margin = 145
     pdf.set_xy(left_table_margin, start_y)
     
     # --- CALCOLO DINAMICO DELLE DIMENSIONI ---
     num_righe = len(df_tabella)
-    spazio_disponibile_y = 165.0  # Millimetri verticali sicuri per non sforare il foglio
+    spazio_disponibile_y = 170.0  # Millimetri verticali massimi
     
-    # Calcola l'altezza della riga (massimo 6mm per estetica, si restringe se ci sono tante righe)
+    # Calcola l'altezza della riga (massimo 6mm, si restringe se ci sono tante righe)
     altezza_riga = min(6.0, spazio_disponibile_y / (num_righe + 1))
     # Calcola la dimensione del font in base all'altezza della riga (massimo font size 8)
     dim_font = max(4.0, min(8.0, altezza_riga * 1.3)) 
@@ -199,11 +213,10 @@ def genera_pdf(df_tabella, fig):
             stato_txt = "KO"
             
         pdf.cell(col_widths[8], altezza_riga, stato_txt, border=1, align="C")
-        pdf.set_text_color(0, 0, 0) # Resetta a nero per le righe successive
+        pdf.set_text_color(0, 0, 0) # Resetta a nero
         pdf.ln()
 
     return bytes(pdf.output())
-
 
 # --- INTERFACCIA UTENTE (UI) ---
 st.title("📊 CMM Best-Fit 3D Dashboard")
