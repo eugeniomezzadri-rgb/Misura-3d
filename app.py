@@ -198,23 +198,34 @@ if uploaded_file is not None:
         if 'Punto' not in df.columns:
             df['Punto'] = range(1, len(df) + 1)
 
-        # --- INIZIALIZZAZIONE SESSION STATE PER RESET E BEST-FIT ---
-        if 'reset_counter' not in st.session_state:
-            st.session_state.reset_counter = 0
+        # --- INIZIALIZZAZIONE SESSION STATE PER SLIDER E BEST-FIT ---
+        # Garantiamo che le variabili esistano sin dall'avvio
+        for k in ['dx', 'dy', 'dz', 'rx', 'ry', 'rz']:
+            if k not in st.session_state:
+                st.session_state[k] = 0.0
 
         if 'best_fit_active' not in st.session_state:
             st.session_state.best_fit_active = False
 
-        # --- CALLBACKS PER I PULSANTI ---
-        def attiva_best_fit():
+        # --- DEFINIZIONE DELLE CALLBACK PURE ---
+        # Modificano solo lo stato interno. Streamlit si occuperà di aggiornare la UI in automatico.
+        def applica_best_fit():
             st.session_state.best_fit_active = True
-            st.session_state.reset_counter += 1  # Incrementa il contatore per resettare visivamente gli slider
-            st.rerun()
+            st.session_state.dx = 0.0
+            st.session_state.dy = 0.0
+            st.session_state.dz = 0.0
+            st.session_state.rx = 0.0
+            st.session_state.ry = 0.0
+            st.session_state.rz = 0.0
 
-        def reset_tutto():
+        def esegui_reset():
             st.session_state.best_fit_active = False
-            st.session_state.reset_counter += 1  # Incrementa il contatore per resettare visivamente gli slider
-            st.rerun()
+            st.session_state.dx = 0.0
+            st.session_state.dy = 0.0
+            st.session_state.dz = 0.0
+            st.session_state.rx = 0.0
+            st.session_state.ry = 0.0
+            st.session_state.rz = 0.0
 
         # --- SIDEBAR: PARAMETRI E CONTROLLI ---
         st.sidebar.header("⚙️ Parametri & Tolleranza")
@@ -223,24 +234,24 @@ if uploaded_file is not None:
         st.sidebar.markdown("---")
         st.sidebar.header("🎯 Pulsante Best-Fit")
         
+        # Leghiamo i pulsanti alle funzioni Callback
         col_b1, col_b2 = st.sidebar.columns(2)
         with col_b1:
-            st.button("Esegui Best-Fit", on_click=attiva_best_fit)
+            st.button("Esegui Best-Fit", on_click=applica_best_fit)
         with col_b2:
-            st.button("Reset", on_click=reset_tutto)
+            st.button("Reset", on_click=esegui_reset)
 
         st.sidebar.markdown("---")
         st.sidebar.header("🎛️ Aggiustamenti Manuali (XYZABC)")
         
-        # Utilizziamo una chiave dinamica legata a reset_counter per forzare il refresh visivo dei cursori a 0.0
-        rc = st.session_state.reset_counter
-        dx = st.sidebar.slider("Delta X (mm)", -20.0, 20.0, value=0.0, key=f"dx_{rc}", step=0.05)
-        dy = st.sidebar.slider("Delta Y (mm)", -20.0, 20.0, value=0.0, key=f"dy_{rc}", step=0.05)
-        dz = st.sidebar.slider("Delta Z (mm)", -20.0, 20.0, value=0.0, key=f"dz_{rc}", step=0.05)
+        # Gli slider ora leggono (e scrivono) esclusivamente sulle "key" dello st.session_state.
+        dx = st.sidebar.slider("Delta X (mm)", -20.0, 20.0, key="dx", step=0.05)
+        dy = st.sidebar.slider("Delta Y (mm)", -20.0, 20.0, key="dy", step=0.05)
+        dz = st.sidebar.slider("Delta Z (mm)", -20.0, 20.0, key="dz", step=0.05)
         
-        rx = st.sidebar.slider("Rotazione A (°)", -45.0, 45.0, value=0.0, key=f"rx_{rc}", step=0.1)
-        ry = st.sidebar.slider("Rotazione B (°)", -45.0, 45.0, value=0.0, key=f"ry_{rc}", step=0.1)
-        rz = st.sidebar.slider("Rotazione C (°)", -45.0, 45.0, value=0.0, key=f"rz_{rc}", step=0.1)
+        rx = st.sidebar.slider("Rotazione A (°)", -45.0, 45.0, key="rx", step=0.1)
+        ry = st.sidebar.slider("Rotazione B (°)", -45.0, 45.0, key="ry", step=0.1)
+        rz = st.sidebar.slider("Rotazione C (°)", -45.0, 45.0, key="rz", step=0.1)
 
         # Estrazione coordinate di base
         target_pts = df[['Target_X', 'Target_Y', 'Target_Z']].values
