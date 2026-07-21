@@ -258,9 +258,13 @@ if uploaded_file is not None:
         for pt in target_pts:
             fig.add_trace(create_sphere_mesh(pt[0], pt[1], pt[2], radius=0.2, color='blue'))
 
+        # Aggiunta dei punti reali con etichetta numerica visibile
         fig.add_trace(go.Scatter3d(
             x=real_pts[:, 0], y=real_pts[:, 1], z=real_pts[:, 2],
             mode='markers+text',
+            text=[str(int(p)) for p in df['Punto']],
+            textposition='top center',
+            textfont=dict(size=10, color='black'),
             marker=dict(size=5, color=point_colors),
             name='Punti Reali (OK/KO)'
         ))
@@ -278,7 +282,7 @@ if uploaded_file is not None:
                 xaxis_title='Asse X (mm)', 
                 yaxis_title='Asse Y (mm)', 
                 zaxis_title='Asse Z (mm)',
-                aspectmode='data'  # <-- Mantiene le proporzioni reali dei dati in 3D
+                aspectmode='data'
             ),
             margin=dict(l=0, r=0, b=0, t=30),
             height=600
