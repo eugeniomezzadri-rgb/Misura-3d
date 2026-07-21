@@ -124,6 +124,85 @@ def esegui_bestfit_callback():
 def resetta_offset():
     for var in ['tx', 'ty', 'tz', 'rx', 'ry', 'rz']:
         st.session_state[var] = 0.0
+# --- GENERAZIONE PDF ---
+def genera_pdf(df_tabella, fig):
+    pdf = FPDF(orientation="L", unit="mm", format="A4") # A4 Landscape
+    pdf.add_page()
+    
+    # Titolo
+    pdf.set_font("helvetica", "B", 16)
+    pdf.cell(0, 10, "Report CMM Best-Fit 3D", align="C", new_x="LMARGIN", new_y="NEXT")
+
+    # 1. Configurazione Telecamera per vista Z+ (dall'alto)
+    fig_top = go.Figure(fig)
+    fig_top.update_layout(
+        scene_camera=dict(
+            eye=dict(x=0, y=0.01, z=2.5), # y=0.01 previene il ribaltamento (gimbal lock) di Plotly
+            up=dict(x=0, y=1, z=0)
+        ),
+        title="Vista dall'alto (Asse Z+)",
+        showlegend=False
+    )
+    
+    # Esportazione grafico in immagine PNG
+    img_bytes = fig_top.to_image(format="png", width=1000, height=1000, scale=1)
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_file:
+        tmp_file.write(img_bytes)
+        tmp_path = tmp_file.name
+
+    # Inserisce l'immagine nella metà di sinistra del PDF
+    pdf.image(tmp_path, x=10, y=30, w=130)
+
+    # 2. Configurazione Tabella nella metà di destra
+    start_y = 30
+    left_table_margin = 145
+    pdf.set_xy(left_table_margin, start_y)
+    
+    pdf.set_font("helvetica", "B", 8)
+    headers = ["Pt.", "Tg X", "Tg Y", "Tg Z", "Rl X", "Rl Y", "Rl Z", "Err 3D", "Stato"]
+    col_widths = [10, 15, 15, 15, 15, 15, 15, 16, 14]
+
+    # Intestazioni Tabella
+    for i, h in enumerate(headers):
+        pdf.cell(col_widths[i], 6, h, border=1, align="C")
+    pdf.ln()
+
+    # Dati Tabella
+    pdf.set_font("helvetica", "", 8)
+    for _, row in df_tabella.iterrows():
+        # Impaginazione automatica se la tabella supera la fine del foglio (Y > 190mm)
+        if pdf.get_y() > 190:
+            pdf.add_page()
+            pdf.set_xy(left_table_margin, 20)
+            pdf.set_font("helvetica", "B", 8)
+            for i, h in enumerate(headers):
+                pdf.cell(col_widths[i], 6, h, border=1, align="C")
+            pdf.ln()
+            pdf.set_font("helvetica", "", 8)
+
+        pdf.set_x(left_table_margin)
+        pdf.cell(col_widths[0], 6, str(int(row["Punto"])), border=1, align="C")
+        pdf.cell(col_widths[1], 6, f"{row['Target_X']:.3f}", border=1, align="C")
+        pdf.cell(col_widths[2], 6, f"{row['Target_Y']:.3f}", border=1, align="C")
+        pdf.cell(col_widths[3], 6, f"{row['Target_Z']:.3f}", border=1, align="C")
+        pdf.cell(col_widths[4], 6, f"{row['Real_X']:.3f}", border=1, align="C")
+        pdf.cell(col_widths[5], 6, f"{row['Real_Y']:.3f}", border=1, align="C")
+        pdf.cell(col_widths[6], 6, f"{row['Real_Z']:.3f}", border=1, align="C")
+        pdf.cell(col_widths[7], 6, f"{row['Errore_3D (mm)']:.3f}", border=1, align="C")
+
+        # Logica di colore Verde/Rosso (Evitiamo le emoji ✅/❌ perché i font PDF standard non le supportano)
+        if "OK" in row["Stato"]:
+            pdf.set_text_color(0, 150, 0) # Testo Verde scuro
+            stato_txt = "OK"
+        else:
+            pdf.set_text_color(200, 0, 0) # Testo Rosso acceso
+            stato_txt = "KO"
+            
+        pdf.cell(col_widths[8], 6, stato_txt, border=1, align="C")
+        pdf.set_text_color(0, 0, 0) # Resetta a Nero per le righe successive
+        pdf.ln()
+
+    return bytes(pdf.output())
 
 # --- INTERFACCIA UTENTE (UI) ---
 st.title("📊 CMM Best-Fit 3D Dashboard")
