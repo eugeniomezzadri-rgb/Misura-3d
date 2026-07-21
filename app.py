@@ -343,3 +343,21 @@ if file_caricato is not None:
             use_container_width=True,
             hide_index=True
         )
+        # --- ZONA ESPORTAZIONE ---
+        st.markdown("---")
+        st.subheader("📥 Esporta Report")
+        
+        # Pulsante preparatorio per non appesantire l'app ricaricando l'immagine a ogni click a vuoto
+        if st.button("🔧 Prepara PDF (Immagine + Dati)"):
+            with st.spinner("Scatto immagine Z+ e generazione PDF in corso... (potrebbe richiedere qualche secondo)"):
+                st.session_state.pdf_data = genera_pdf(df_tabella, fig)
+                
+        # Mostra il pulsante di download effettivo solo quando il file è pronto in memoria
+        if "pdf_data" in st.session_state:
+            st.download_button(
+                label="⬇️ Scarica il Report in formato PDF",
+                data=st.session_state.pdf_data,
+                file_name="Report_CMM_ZPlus.pdf",
+                mime="application/pdf",
+                type="primary"
+            )
