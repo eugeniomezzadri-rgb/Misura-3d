@@ -37,7 +37,7 @@ def cb_reset():
     st.session_state.best_fit_active = False
     azzera_slider()
 
-# --- FUNZIONI DI SUPPORTO ---
+# --- FUNZIONI DI SUPPORTO GEOMETRICO ---
 def create_sphere_mesh(x, y, z, radius=0.5, color='blue', n_subdiv=10):
     phi = np.linspace(0, np.pi, n_subdiv)
     theta = np.linspace(0, 2 * np.pi, n_subdiv)
@@ -83,7 +83,7 @@ def parse_cmm_txt(content_str):
             })
     return pd.DataFrame(data)
 
-# --- CARICAMENTO E CACHING DATI (RISOLVE IL BUG) ---
+# --- CARICAMENTO E CACHING DATI ---
 @st.cache_data
 def load_data(file_obj):
     file_obj.seek(0)  # Ripristina sempre il cursore all'inizio del file
@@ -100,18 +100,27 @@ def load_data(file_obj):
     return df
 
 # --- GENERAZIONE PDF ---
-def genera_pdf(df_tabella, fig, errore_rms, nome_file="Report_CMM"):
+def genera_pdf(df_tabella, fig, errore_rms, dx, dy, dz, rx, ry, rz, nome_file="Report_CMM"):
     try:
         pdf = FPDF(orientation="L", unit="mm", format="A4")
         pdf.set_auto_page_break(auto=False, margin=0)
         pdf.add_page()
+        
+        # Titolo
         pdf.set_font("helvetica", "B", 16)
         pdf.cell(0, 10, "Report CMM Best-Fit 3D", align="C", new_x="LMARGIN", new_y="NEXT")
         
+        # Intestazione Generale
         data_oggi = datetime.datetime.now().strftime("%d/%m/%Y")
         pdf.set_font("helvetica", "I", 10)
         pdf.cell(0, 6, f"File: {nome_file}  |  Data: {data_oggi}  |  RMS Globale: {errore_rms:.4f} mm", align="C", new_x="LMARGIN", new_y="NEXT")
+        
+        # Intestazione Correzioni Manuali
+        pdf.set_font("helvetica", "", 9)
+        testo_correzioni = f"Correzioni manuali - Offset (mm): dX={dx:.4f} | dY={dy:.4f} | dZ={dz:.4f}   --   Rotazioni (°): rx={rx:.3f} | ry={ry:.3f} | rz={rz:.3f}"
+        pdf.cell(0, 6, testo_correzioni, align="C", new_x="LMARGIN", new_y="NEXT")
 
+        # Generazione Immagine Plotly
         fig_top = go.Figure(fig)
         fig_top.update_layout(
             scene_camera=dict(eye=dict(x=0, y=0.01, z=2.5), up=dict(x=0, y=1, z=0)),
@@ -123,19 +132,21 @@ def genera_pdf(df_tabella, fig, errore_rms, nome_file="Report_CMM"):
             tmp_file.write(img_bytes)
             tmp_path = tmp_file.name
 
-        pdf.image(tmp_path, x=10, y=32, w=130)
+        # Inserimento Immagine nel PDF
+        pdf.image(tmp_path, x=10, y=38, w=125)
 
-        start_y = 32
-        left_table_margin = 145
+        # Disegno Tabella
+        start_y = 38
+        left_table_margin = 140
         pdf.set_xy(left_table_margin, start_y)
         
         num_righe = len(df_tabella)
-        spazio_disponibile_y = 170.0  
+        spazio_disponibile_y = 160.0  
         altezza_riga = min(6.0, spazio_disponibile_y / (num_righe + 1))
         dim_font = max(4.0, min(8.0, altezza_riga * 1.3)) 
         
         headers = ["Pt.", "Tg X", "Tg Y", "Tg Z", "Rl X", "Rl Y", "Rl Z", "Err 3D", "Stato"]
-        col_widths = [10, 15, 15, 15, 15, 15, 15, 16, 14]
+        col_widths = [8, 16, 16, 16, 16, 16, 16, 15, 12]
 
         pdf.set_font("helvetica", "B", dim_font)
         pdf.set_fill_color(230, 230, 230)
@@ -150,13 +161,13 @@ def genera_pdf(df_tabella, fig, errore_rms, nome_file="Report_CMM"):
             pdf.set_fill_color(225, 245, 225) if is_ok else pdf.set_fill_color(255, 230, 230)
 
             pdf.cell(col_widths[0], altezza_riga, str(int(row["Punto"])), border=1, align="C", fill=True)
-            pdf.cell(col_widths[1], altezza_riga, f"{row['Target_X']:.3f}", border=1, align="C", fill=True)
-            pdf.cell(col_widths[2], altezza_riga, f"{row['Target_Y']:.3f}", border=1, align="C", fill=True)
-            pdf.cell(col_widths[3], altezza_riga, f"{row['Target_Z']:.3f}", border=1, align="C", fill=True)
-            pdf.cell(col_widths[4], altezza_riga, f"{row['Real_X']:.3f}", border=1, align="C", fill=True)
-            pdf.cell(col_widths[5], altezza_riga, f"{row['Real_Y']:.3f}", border=1, align="C", fill=True)
-            pdf.cell(col_widths[6], altezza_riga, f"{row['Real_Z']:.3f}", border=1, align="C", fill=True)
-            pdf.cell(col_widths[7], altezza_riga, f"{row['Errore_3D (mm)']:.3f}", border=1, align="C", fill=True)
+            pdf.cell(col_widths[1], altezza_riga, f"{row['Target_X']:.4f}", border=1, align="C", fill=True)
+            pdf.cell(col_widths[2], altezza_riga, f"{row['Target_Y']:.4f}", border=1, align="C", fill=True)
+            pdf.cell(col_widths[3], altezza_riga, f"{row['Target_Z']:.4f}", border=1, align="C", fill=True)
+            pdf.cell(col_widths[4], altezza_riga, f"{row['Real_X']:.4f}", border=1, align="C", fill=True)
+            pdf.cell(col_widths[5], altezza_riga, f"{row['Real_Y']:.4f}", border=1, align="C", fill=True)
+            pdf.cell(col_widths[6], altezza_riga, f"{row['Real_Z']:.4f}", border=1, align="C", fill=True)
+            pdf.cell(col_widths[7], altezza_riga, f"{row['Errore_3D (mm)']:.4f}", border=1, align="C", fill=True)
             
             pdf.set_text_color(0, 120, 0) if is_ok else pdf.set_text_color(180, 0, 0)
             pdf.cell(col_widths[8], altezza_riga, "OK" if is_ok else "KO", border=1, align="C", fill=True)
@@ -165,7 +176,7 @@ def genera_pdf(df_tabella, fig, errore_rms, nome_file="Report_CMM"):
 
         return bytes(pdf.output())
     except Exception as e:
-        st.error(f"Installa 'kaleido' per il PDF (`pip install kaleido`). Dettaglio: {e}")
+        st.error(f"Errore generazione PDF. Assicurati che 'kaleido' sia installato (`pip install kaleido`). Dettaglio: {e}")
         return None
 
 # --- UI PRINCIPALE ---
@@ -209,12 +220,12 @@ if uploaded_file is not None:
 
         st.sidebar.markdown("---")
         st.sidebar.header("🎛️ Aggiustamenti Manuali")
-        dx = st.sidebar.slider("Delta X (mm)", -20.0, 20.0, key="dx", step=0.05)
-        dy = st.sidebar.slider("Delta Y (mm)", -20.0, 20.0, key="dy", step=0.05)
-        dz = st.sidebar.slider("Delta Z (mm)", -20.0, 20.0, key="dz", step=0.05)
-        rx = st.sidebar.slider("Rotazione A (°)", -45.0, 45.0, key="rx", step=0.1)
-        ry = st.sidebar.slider("Rotazione B (°)", -45.0, 45.0, key="ry", step=0.1)
-        rz = st.sidebar.slider("Rotazione C (°)", -45.0, 45.0, key="rz", step=0.1)
+        dx = st.sidebar.slider("Delta X (mm)", -20.0, 20.0, key="dx", step=0.0005, format="%.4f")
+        dy = st.sidebar.slider("Delta Y (mm)", -20.0, 20.0, key="dy", step=0.0005, format="%.4f")
+        dz = st.sidebar.slider("Delta Z (mm)", -20.0, 20.0, key="dz", step=0.0005, format="%.4f")
+        rx = st.sidebar.slider("Rotazione A (°)", -45.0, 45.0, key="rx", step=0.001, format="%.3f")
+        ry = st.sidebar.slider("Rotazione B (°)", -45.0, 45.0, key="ry", step=0.001, format="%.3f")
+        rz = st.sidebar.slider("Rotazione C (°)", -45.0, 45.0, key="rz", step=0.001, format="%.3f")
 
         # --- CALCOLI GEOMETRICI ---
         target_pts = df[['Target_X', 'Target_Y', 'Target_Z']].values
@@ -273,10 +284,23 @@ if uploaded_file is not None:
         # --- REPORT PDF ---
         st.markdown("---")
         if st.button("🔧 Prepara PDF"):
-            with st.spinner("Generazione PDF..."):
-                pdf_bytes = genera_pdf(df_tabella, fig, errore_rms, nome_file=uploaded_file.name)
+            with st.spinner("Generazione PDF in corso..."):
+                pdf_bytes = genera_pdf(
+                    df_tabella=df_tabella, 
+                    fig=fig, 
+                    errore_rms=errore_rms, 
+                    dx=dx, dy=dy, dz=dz, 
+                    rx=rx, ry=ry, rz=rz, 
+                    nome_file=uploaded_file.name
+                )
                 if pdf_bytes:
                     st.session_state.pdf_data = pdf_bytes
                 
         if "pdf_data" in st.session_state:
-            st.download_button("⬇️ Scarica PDF", data=st.session_state.pdf_data, file_name=f"Report_{uploaded_file.name}.pdf", mime="application/pdf", type="primary")
+            st.download_button(
+                label="⬇️ Scarica PDF", 
+                data=st.session_state.pdf_data, 
+                file_name=f"Report_{uploaded_file.name}.pdf", 
+                mime="application/pdf", 
+                type="primary"
+            )
