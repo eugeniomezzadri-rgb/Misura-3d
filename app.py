@@ -200,7 +200,7 @@ if uploaded_file is not None:
 
         # --- SIDEBAR: PARAMETRI E CONTROLLI ---
         st.sidebar.header("⚙️ Parametri & Tolleranza")
-        tolleranza = st.sidebar.number_input("Tolleranza Errore 3D (mm)", value=0.25, step=0.05)
+        tolleranza = st.sidebar.number_input("Tolleranza Errore 3D (mm)", value=0.05, step=0.05)
 
         st.sidebar.markdown("---")
         st.sidebar.header("🎯 Pulsante Best-Fit")
