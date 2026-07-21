@@ -124,7 +124,8 @@ def esegui_bestfit_callback():
 def resetta_offset():
     for var in ['tx', 'ty', 'tz', 'rx', 'ry', 'rz']:
         st.session_state[var] = 0.0
-# --- GENERAZIONE PDF ---
+
+         # --- GENERAZIONE PDF (SINGOLA PAGINA) ---
 def genera_pdf(df_tabella, fig):
     pdf = FPDF(orientation="L", unit="mm", format="A4") # A4 Landscape
     pdf.add_page()
@@ -137,7 +138,7 @@ def genera_pdf(df_tabella, fig):
     fig_top = go.Figure(fig)
     fig_top.update_layout(
         scene_camera=dict(
-            eye=dict(x=0, y=0.01, z=2.5), # y=0.01 previene il ribaltamento (gimbal lock) di Plotly
+            eye=dict(x=0, y=0.01, z=2.5), 
             up=dict(x=0, y=1, z=0)
         ),
         title="Vista dall'alto (Asse Z+)",
@@ -153,56 +154,56 @@ def genera_pdf(df_tabella, fig):
     # Inserisce l'immagine nella metà di sinistra del PDF
     pdf.image(tmp_path, x=10, y=30, w=130)
 
-    # 2. Configurazione Tabella nella metà di destra
+    # 2. Configurazione Tabella Autoadattiva
     start_y = 30
     left_table_margin = 145
     pdf.set_xy(left_table_margin, start_y)
     
-    pdf.set_font("helvetica", "B", 8)
+    # --- CALCOLO DINAMICO DELLE DIMENSIONI ---
+    num_righe = len(df_tabella)
+    spazio_disponibile_y = 165.0  # Millimetri verticali sicuri per non sforare il foglio
+    
+    # Calcola l'altezza della riga (massimo 6mm per estetica, si restringe se ci sono tante righe)
+    altezza_riga = min(6.0, spazio_disponibile_y / (num_righe + 1))
+    # Calcola la dimensione del font in base all'altezza della riga (massimo font size 8)
+    dim_font = max(4.0, min(8.0, altezza_riga * 1.3)) 
+    
     headers = ["Pt.", "Tg X", "Tg Y", "Tg Z", "Rl X", "Rl Y", "Rl Z", "Err 3D", "Stato"]
     col_widths = [10, 15, 15, 15, 15, 15, 15, 16, 14]
 
     # Intestazioni Tabella
+    pdf.set_font("helvetica", "B", dim_font)
     for i, h in enumerate(headers):
-        pdf.cell(col_widths[i], 6, h, border=1, align="C")
+        pdf.cell(col_widths[i], altezza_riga, h, border=1, align="C")
     pdf.ln()
 
     # Dati Tabella
-    pdf.set_font("helvetica", "", 8)
+    pdf.set_font("helvetica", "", dim_font)
     for _, row in df_tabella.iterrows():
-        # Impaginazione automatica se la tabella supera la fine del foglio (Y > 190mm)
-        if pdf.get_y() > 190:
-            pdf.add_page()
-            pdf.set_xy(left_table_margin, 20)
-            pdf.set_font("helvetica", "B", 8)
-            for i, h in enumerate(headers):
-                pdf.cell(col_widths[i], 6, h, border=1, align="C")
-            pdf.ln()
-            pdf.set_font("helvetica", "", 8)
-
         pdf.set_x(left_table_margin)
-        pdf.cell(col_widths[0], 6, str(int(row["Punto"])), border=1, align="C")
-        pdf.cell(col_widths[1], 6, f"{row['Target_X']:.3f}", border=1, align="C")
-        pdf.cell(col_widths[2], 6, f"{row['Target_Y']:.3f}", border=1, align="C")
-        pdf.cell(col_widths[3], 6, f"{row['Target_Z']:.3f}", border=1, align="C")
-        pdf.cell(col_widths[4], 6, f"{row['Real_X']:.3f}", border=1, align="C")
-        pdf.cell(col_widths[5], 6, f"{row['Real_Y']:.3f}", border=1, align="C")
-        pdf.cell(col_widths[6], 6, f"{row['Real_Z']:.3f}", border=1, align="C")
-        pdf.cell(col_widths[7], 6, f"{row['Errore_3D (mm)']:.3f}", border=1, align="C")
+        pdf.cell(col_widths[0], altezza_riga, str(int(row["Punto"])), border=1, align="C")
+        pdf.cell(col_widths[1], altezza_riga, f"{row['Target_X']:.3f}", border=1, align="C")
+        pdf.cell(col_widths[2], altezza_riga, f"{row['Target_Y']:.3f}", border=1, align="C")
+        pdf.cell(col_widths[3], altezza_riga, f"{row['Target_Z']:.3f}", border=1, align="C")
+        pdf.cell(col_widths[4], altezza_riga, f"{row['Real_X']:.3f}", border=1, align="C")
+        pdf.cell(col_widths[5], altezza_riga, f"{row['Real_Y']:.3f}", border=1, align="C")
+        pdf.cell(col_widths[6], altezza_riga, f"{row['Real_Z']:.3f}", border=1, align="C")
+        pdf.cell(col_widths[7], altezza_riga, f"{row['Errore_3D (mm)']:.3f}", border=1, align="C")
 
-        # Logica di colore Verde/Rosso (Evitiamo le emoji ✅/❌ perché i font PDF standard non le supportano)
+        # Logica di colore Verde/Rosso
         if "OK" in row["Stato"]:
-            pdf.set_text_color(0, 150, 0) # Testo Verde scuro
+            pdf.set_text_color(0, 150, 0) # Verde
             stato_txt = "OK"
         else:
-            pdf.set_text_color(200, 0, 0) # Testo Rosso acceso
+            pdf.set_text_color(200, 0, 0) # Rosso
             stato_txt = "KO"
             
-        pdf.cell(col_widths[8], 6, stato_txt, border=1, align="C")
-        pdf.set_text_color(0, 0, 0) # Resetta a Nero per le righe successive
+        pdf.cell(col_widths[8], altezza_riga, stato_txt, border=1, align="C")
+        pdf.set_text_color(0, 0, 0) # Resetta a nero per le righe successive
         pdf.ln()
 
     return bytes(pdf.output())
+
 
 # --- INTERFACCIA UTENTE (UI) ---
 st.title("📊 CMM Best-Fit 3D Dashboard")
