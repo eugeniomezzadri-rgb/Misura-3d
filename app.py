@@ -17,6 +17,10 @@ for k in ['dx', 'dy', 'dz', 'rx', 'ry', 'rz']:
     if k not in st.session_state:
         st.session_state[k] = 0.0
 
+# Tracciamento del file precedente per rilevare un nuovo caricamento
+if 'last_uploaded_file' not in st.session_state:
+    st.session_state.last_uploaded_file = None
+
 # --- CALLBACKS PER I PULSANTI ---
 def azzera_slider():
     st.session_state.dx = 0.0
@@ -27,10 +31,6 @@ def azzera_slider():
     st.session_state.rz = 0.0
 
 def cb_best_fit(df_local):
-    """
-    Calcola l'allineamento ideale (Kabsch) e inietta i risultati 
-    negli slider per mostrarli all'utente.
-    """
     target_pts = df_local[['Target_X', 'Target_Y', 'Target_Z']].values
     raw_real_pts = df_local[['Real_X', 'Real_Y', 'Real_Z']].values
     
@@ -48,14 +48,10 @@ def cb_best_fit(df_local):
         
     rot_matrix = Vt.T @ U.T
     
-    # Estrazione angoli di Eulero dalla matrice di rotazione
     r = R.from_matrix(rot_matrix)
     rx, ry, rz = r.as_euler('xyz', degrees=True)
-    
-    # La traslazione è semplicemente la differenza tra i centroidi
     dx, dy, dz = centroid_target - centroid_real
     
-    # Aggiorna gli slider
     st.session_state.dx = float(dx)
     st.session_state.dy = float(dy)
     st.session_state.dz = float(dz)
@@ -194,6 +190,11 @@ def genera_pdf(df_tabella, fig, errore_rms, dx, dy, dz, rx, ry, rz, nome_file="R
 uploaded_file = st.file_uploader("Carica il file dei dati CMM", type=["csv", "xlsx", "txt"])
 
 if uploaded_file is not None:
+    # Controlla se è stato caricato un file nuovo rispetto al precedente
+    if st.session_state.last_uploaded_file != uploaded_file.name:
+        azzera_slider()
+        st.session_state.last_uploaded_file = uploaded_file.name
+
     df_raw = load_data(uploaded_file)
 
     if df_raw.empty:
@@ -227,7 +228,6 @@ if uploaded_file is not None:
         st.sidebar.header("🎯 Best-Fit & Reset")
         col_b1, col_b2 = st.sidebar.columns(2)
         
-        # Ora passiamo il DataFrame al callback in modo che possa calcolare i valori
         col_b1.button("Esegui Best-Fit", on_click=cb_best_fit, args=(df,))
         col_b2.button("Reset", on_click=cb_reset)
 
@@ -241,14 +241,12 @@ if uploaded_file is not None:
         rz = st.sidebar.slider("Rotazione C (°)", -45.0, 45.0, key="rz", step=0.001, format="%.3f")
 
         # --- CALCOLI GEOMETRICI ---
-        # Adesso i punti vengono spostati ESCLUSIVAMENTE tramite i valori degli slider
         target_pts = df[['Target_X', 'Target_Y', 'Target_Z']].values
         raw_real_pts = df[['Real_X', 'Real_Y', 'Real_Z']].values
 
         centroid = np.mean(raw_real_pts, axis=0)
         r = R.from_euler('xyz', [rx, ry, rz], degrees=True)
         
-        # Applicazione della rotazione e traslazione (guidata dagli slider)
         real_pts = (r.apply(raw_real_pts - centroid) + centroid) + np.array([dx, dy, dz])
 
         errori_3d = np.linalg.norm(target_pts - real_pts, axis=1)
