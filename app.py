@@ -199,49 +199,53 @@ if uploaded_file is not None:
             df['Punto'] = range(1, len(df) + 1)
 
         # --- SIDEBAR: PARAMETRI E CONTROLLI ---
-        st.sidebar.header("⚙️ Parametri & Allineamento")
-        
+        st.sidebar.header("⚙️ Parametri & Tolleranza")
         tolleranza = st.sidebar.number_input("Tolleranza Errore 3D (mm)", value=0.25, step=0.05)
-        
-        alignment_mode = st.sidebar.radio(
-            "Seleziona Modalità Allineamento",
-            ["Best-Fit 3D (Kabsch Automatico)", "Manuale (XYZABC)", "Nessun Allineamento (Grezzo)"]
-        )
 
-        # Slider per modifiche manuali XYZABC
-        dx, dy, dz = 0.0, 0.0, 0.0
-        rx, ry, rz = 0.0, 0.0, 0.0
+        st.sidebar.markdown("---")
+        st.sidebar.header("🎯 Pulsante Best-Fit")
         
-        if alignment_mode == "Manuale (XYZABC)":
-            st.sidebar.subheader("Traslazioni (mm)")
-            dx = st.sidebar.slider("Delta X", -20.0, 20.0, 0.0, 0.05)
-            dy = st.sidebar.slider("Delta Y", -20.0, 20.0, 0.0, 0.05)
-            dz = st.sidebar.slider("Delta Z", -20.0, 20.0, 0.0, 0.05)
-            
-            st.sidebar.subheader("Rotazioni (°)")
-            rx = st.sidebar.slider("Rotazione A (X)", -45.0, 45.0, 0.0, 0.1)
-            ry = st.sidebar.slider("Rotazione B (Y)", -45.0, 45.0, 0.0, 0.1)
-            rz = st.sidebar.slider("Rotazione C (Z)", -45.0, 45.0, 0.0, 0.1)
+        if 'best_fit_active' not in st.session_state:
+            st.session_state.best_fit_active = False
+
+        col_b1, col_b2 = st.sidebar.columns(2)
+        with col_b1:
+            if st.button("Esegui Best-Fit"):
+                st.session_state.best_fit_active = True
+        with col_b2:
+            if st.button("Reset"):
+                st.session_state.best_fit_active = False
+
+        st.sidebar.markdown("---")
+        st.sidebar.header("🎛️ Aggiustamenti Manuali (XYZABC)")
+        dx = st.sidebar.slider("Delta X (mm)", -20.0, 20.0, 0.0, 0.05)
+        dy = st.sidebar.slider("Delta Y (mm)", -20.0, 20.0, 0.0, 0.05)
+        dz = st.sidebar.slider("Delta Z (mm)", -20.0, 20.0, 0.0, 0.05)
+        
+        rx = st.sidebar.slider("Rotazione A (°)", -45.0, 45.0, 0.0, 0.1)
+        ry = st.sidebar.slider("Rotazione B (°)", -45.0, 45.0, 0.0, 0.1)
+        rz = st.sidebar.slider("Rotazione C (°)", -45.0, 45.0, 0.0, 0.1)
 
         # Estrazione coordinate di base
         target_pts = df[['Target_X', 'Target_Y', 'Target_Z']].values
         raw_real_pts = df[['Real_X', 'Real_Y', 'Real_Z']].values
 
-        # Applicazione dell'allineamento scelto
-        if alignment_mode == "Best-Fit 3D (Kabsch Automatico)":
-            real_pts = best_fit_alignment(raw_real_pts, target_pts)
-        elif alignment_mode == "Manuale (XYZABC)":
-            centroid = np.mean(raw_real_pts, axis=0)
-            r = R.from_euler('xyz', [rx, ry, rz], degrees=True)
-            rotated_pts = r.apply(raw_real_pts - centroid) + centroid
-            real_pts = rotated_pts + np.array([dx, dy, dz])
+        # 1. Applicazione automatica del Best-Fit se il pulsante è attivo
+        if st.session_state.best_fit_active:
+            aligned_pts = best_fit_alignment(raw_real_pts, target_pts)
         else:
-            real_pts = raw_real_pts.copy()
+            aligned_pts = raw_real_pts.copy()
 
-        # Calcolo errori 3D post-allineamento
+        # 2. Applicazione degli aggiustamenti manuali via slider
+        centroid = np.mean(aligned_pts, axis=0)
+        r = R.from_euler('xyz', [rx, ry, rz], degrees=True)
+        rotated_pts = r.apply(aligned_pts - centroid) + centroid
+        real_pts = rotated_pts + np.array([dx, dy, dz])
+
+        # Calcolo errori 3D finali
         errori_3d = np.linalg.norm(target_pts - real_pts, axis=1)
 
-        # Definizione colori in base alla tolleranza (Verde = OK, Rosso = KO)
+        # Definizione colori dinamici in base alla tolleranza (Verde = OK, Rosso = KO)
         point_colors = ['#2ecc71' if err <= tolleranza else '#e74c3c' for err in errori_3d]
 
         # Costruzione Grafico 3D
