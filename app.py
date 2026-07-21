@@ -6,7 +6,9 @@ from scipy.spatial.transform import Rotation as R
 import re
 import io
 import tempfile
+import datetime
 from fpdf import FPDF
+import plotly.graph_objects as go
 
 # --- CONFIGURAZIONE PAGINA ---
 st.set_page_config(page_title="CMM Best-Fit Dashboard", layout="wide", initial_sidebar_state="expanded")
@@ -125,10 +127,7 @@ def resetta_offset():
     for var in ['tx', 'ty', 'tz', 'rx', 'ry', 'rz']:
         st.session_state[var] = 0.0
 
-         import tempfile
-import datetime
-from fpdf import FPDF
-import plotly.graph_objects as go
+
 
 # --- GENERAZIONE PDF (SINGOLA PAGINA FORZATA) ---
 def genera_pdf(df_tabella, fig, nome_file="Dati_Misurazione.csv"):
