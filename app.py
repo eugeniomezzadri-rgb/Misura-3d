@@ -4,6 +4,9 @@ import pandas as pd
 import plotly.graph_objects as go
 from scipy.spatial.transform import Rotation as R
 import re
+import io
+import tempfile
+from fpdf import FPDF
 
 # --- CONFIGURAZIONE PAGINA ---
 st.set_page_config(page_title="CMM Best-Fit Dashboard", layout="wide", initial_sidebar_state="expanded")
