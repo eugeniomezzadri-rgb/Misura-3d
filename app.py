@@ -12,7 +12,7 @@ from fpdf import FPDF
 st.set_page_config(page_title="Report CMM Best-Fit 3D", layout="wide")
 st.title("Report CMM Best-Fit 3D")
 
-# --- INIZIALIZZAZIONE DELLO STATO (Prima di qualsiasi widget) ---
+# --- INIZIALIZZAZIONE STATO SLIDER ---
 for k in ['dx', 'dy', 'dz', 'rx', 'ry', 'rz']:
     if k not in st.session_state:
         st.session_state[k] = 0.0
@@ -20,7 +20,7 @@ for k in ['dx', 'dy', 'dz', 'rx', 'ry', 'rz']:
 if 'best_fit_active' not in st.session_state:
     st.session_state.best_fit_active = False
 
-# --- FUNZIONI CALLBACK PER I PULSANTI ---
+# --- CALLBACKS PER I PULSANTI ---
 def azzera_slider():
     st.session_state.dx = 0.0
     st.session_state.dy = 0.0
@@ -37,7 +37,7 @@ def cb_reset():
     st.session_state.best_fit_active = False
     azzera_slider()
 
-# --- FUNZIONE PER CREARE SFERE 3D ---
+# --- FUNZIONI DI SUPPORTO ---
 def create_sphere_mesh(x, y, z, radius=0.5, color='blue', n_subdiv=10):
     phi = np.linspace(0, np.pi, n_subdiv)
     theta = np.linspace(0, 2 * np.pi, n_subdiv)
@@ -53,7 +53,6 @@ def create_sphere_mesh(x, y, z, radius=0.5, color='blue', n_subdiv=10):
         hoverinfo='skip'
     )
 
-# --- ALGORITMO BEST-FIT (KABSCH) ---
 def best_fit_alignment(real_pts, target_pts):
     centroid_real = np.mean(real_pts, axis=0)
     centroid_target = np.mean(target_pts, axis=0)
@@ -66,7 +65,6 @@ def best_fit_alignment(real_pts, target_pts):
     rot_matrix = Vt.T @ U.T
     return (p_centered @ rot_matrix.T) + centroid_target
 
-# --- PARSER TXT CMM ---
 def parse_cmm_txt(content_str):
     blocks = content_str.split("3D POINT PROBING - MEASURING LOG")
     data = []
@@ -84,6 +82,22 @@ def parse_cmm_txt(content_str):
                 "Target_Z": float(target_match.group(3))
             })
     return pd.DataFrame(data)
+
+# --- CARICAMENTO E CACHING DATI (RISOLVE IL BUG) ---
+@st.cache_data
+def load_data(file_obj):
+    file_obj.seek(0)  # Ripristina sempre il cursore all'inizio del file
+    ext = file_obj.name.split('.')[-1].lower()
+    if ext == 'csv':
+        df = pd.read_csv(file_obj)
+    elif ext == 'xlsx':
+        df = pd.read_excel(file_obj)
+    elif ext == 'txt':
+        content = file_obj.read().decode('utf-8', errors='ignore')
+        df = parse_cmm_txt(content)
+    else:
+        df = pd.DataFrame()
+    return df
 
 # --- GENERAZIONE PDF ---
 def genera_pdf(df_tabella, fig, errore_rms, nome_file="Report_CMM"):
@@ -151,25 +165,19 @@ def genera_pdf(df_tabella, fig, errore_rms, nome_file="Report_CMM"):
 
         return bytes(pdf.output())
     except Exception as e:
-        st.error(f"Errore durante la generazione del PDF. Assicurati che 'kaleido' sia installato (`pip install kaleido`). Dettaglio: {e}")
+        st.error(f"Installa 'kaleido' per il PDF (`pip install kaleido`). Dettaglio: {e}")
         return None
 
-# --- CARICAMENTO FILE ---
+# --- UI PRINCIPALE ---
 uploaded_file = st.file_uploader("Carica il file dei dati CMM", type=["csv", "xlsx", "txt"])
 
 if uploaded_file is not None:
-    ext = uploaded_file.name.split('.')[-1].lower()
-    if ext == 'csv':
-        df = pd.read_csv(uploaded_file)
-    elif ext == 'xlsx':
-        df = pd.read_excel(uploaded_file)
-    elif ext == 'txt':
-        df = parse_cmm_txt(uploaded_file.read().decode('utf-8', errors='ignore'))
+    df_raw = load_data(uploaded_file)
 
-    if df.empty:
-        st.error("Nessun dato trovato nel file caricato. Verifica la struttura del file.")
+    if df_raw.empty:
+        st.error("Nessun dato trovato nel file. Verifica la struttura del documento.")
     else:
-        st.success(f"File caricato! Trovati {len(df)} punti.")
+        df = df_raw.copy()
 
         # Normalizzazione colonne
         rename_map = {}
@@ -187,7 +195,9 @@ if uploaded_file is not None:
         if 'Punto' not in df.columns:
             df['Punto'] = range(1, len(df) + 1)
 
-        # --- SIDEBAR CONTROLLI ---
+        st.success(f"File caricato con successo! Trovati {len(df)} punti.")
+
+        # --- CONTROLLI SIDEBAR ---
         st.sidebar.header("⚙️ Parametri & Tolleranza")
         tolleranza = st.sidebar.number_input("Tolleranza Errore 3D (mm)", value=0.05, step=0.01)
 
@@ -199,8 +209,6 @@ if uploaded_file is not None:
 
         st.sidebar.markdown("---")
         st.sidebar.header("🎛️ Aggiustamenti Manuali")
-        
-        # SLIDER LEGATI ESCLUSIVAMENTE ALLA KEY (Senza parametro 'value')
         dx = st.sidebar.slider("Delta X (mm)", -20.0, 20.0, key="dx", step=0.05)
         dy = st.sidebar.slider("Delta Y (mm)", -20.0, 20.0, key="dy", step=0.05)
         dz = st.sidebar.slider("Delta Z (mm)", -20.0, 20.0, key="dz", step=0.05)
@@ -208,7 +216,7 @@ if uploaded_file is not None:
         ry = st.sidebar.slider("Rotazione B (°)", -45.0, 45.0, key="ry", step=0.1)
         rz = st.sidebar.slider("Rotazione C (°)", -45.0, 45.0, key="rz", step=0.1)
 
-        # CALCOLI
+        # --- CALCOLI GEOMETRICI ---
         target_pts = df[['Target_X', 'Target_Y', 'Target_Z']].values
         raw_real_pts = df[['Real_X', 'Real_Y', 'Real_Z']].values
 
@@ -223,7 +231,7 @@ if uploaded_file is not None:
 
         st.metric(label="📉 Errore RMS Globale", value=f"{errore_rms:.4f} mm")
 
-        # GRAFICO 3D
+        # --- GRAFICO 3D ---
         point_colors = ['#2ecc71' if err <= tolleranza else '#e74c3c' for err in errori_3d]
         fig = go.Figure()
 
@@ -251,7 +259,7 @@ if uploaded_file is not None:
         )
         st.plotly_chart(fig, use_container_width=True)
 
-        # TABELLA
+        # --- TABELLA ---
         st.markdown("---")
         df_tabella = df.copy()
         df_tabella["Real_X"] = real_pts[:, 0]
@@ -262,7 +270,7 @@ if uploaded_file is not None:
         
         st.dataframe(df_tabella.style.format("{:.4f}", subset=["Real_X", "Real_Y", "Real_Z", "Target_X", "Target_Y", "Target_Z", "Errore_3D (mm)"]), use_container_width=True, hide_index=True)
 
-        # PDF
+        # --- REPORT PDF ---
         st.markdown("---")
         if st.button("🔧 Prepara PDF"):
             with st.spinner("Generazione PDF..."):
