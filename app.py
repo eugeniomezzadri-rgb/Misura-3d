@@ -198,33 +198,22 @@ if uploaded_file is not None:
         if 'Punto' not in df.columns:
             df['Punto'] = range(1, len(df) + 1)
 
-        # --- INIZIALIZZAZIONE SESSION STATE PER SLIDER E BEST-FIT ---
-        for k, default_val in [('dx', 0.0), ('dy', 0.0), ('dz', 0.0), ('rx', 0.0), ('ry', 0.0), ('rz', 0.0)]:
-            if k not in st.session_state:
-                st.session_state[k] = default_val
+        # --- INIZIALIZZAZIONE SESSION STATE PER RESET E BEST-FIT ---
+        if 'reset_counter' not in st.session_state:
+            st.session_state.reset_counter = 0
 
         if 'best_fit_active' not in st.session_state:
             st.session_state.best_fit_active = False
 
-        # --- CALLBACKS PER I PULSANTI CON ST.RERUN() ---
+        # --- CALLBACKS PER I PULSANTI ---
         def attiva_best_fit():
             st.session_state.best_fit_active = True
-            st.session_state.dx = 0.0
-            st.session_state.dy = 0.0
-            st.session_state.dz = 0.0
-            st.session_state.rx = 0.0
-            st.session_state.ry = 0.0
-            st.session_state.rz = 0.0
+            st.session_state.reset_counter += 1  # Incrementa il contatore per resettare visivamente gli slider
             st.rerun()
 
         def reset_tutto():
             st.session_state.best_fit_active = False
-            st.session_state.dx = 0.0
-            st.session_state.dy = 0.0
-            st.session_state.dz = 0.0
-            st.session_state.rx = 0.0
-            st.session_state.ry = 0.0
-            st.session_state.rz = 0.0
+            st.session_state.reset_counter += 1  # Incrementa il contatore per resettare visivamente gli slider
             st.rerun()
 
         # --- SIDEBAR: PARAMETRI E CONTROLLI ---
@@ -242,13 +231,16 @@ if uploaded_file is not None:
 
         st.sidebar.markdown("---")
         st.sidebar.header("🎛️ Aggiustamenti Manuali (XYZABC)")
-        dx = st.sidebar.slider("Delta X (mm)", -20.0, 20.0, key="dx", step=0.05)
-        dy = st.sidebar.slider("Delta Y (mm)", -20.0, 20.0, key="dy", step=0.05)
-        dz = st.sidebar.slider("Delta Z (mm)", -20.0, 20.0, key="dz", step=0.05)
         
-        rx = st.sidebar.slider("Rotazione A (°)", -45.0, 45.0, key="rx", step=0.1)
-        ry = st.sidebar.slider("Rotazione B (°)", -45.0, 45.0, key="ry", step=0.1)
-        rz = st.sidebar.slider("Rotazione C (°)", -45.0, 45.0, key="rz", step=0.1)
+        # Utilizziamo una chiave dinamica legata a reset_counter per forzare il refresh visivo dei cursori a 0.0
+        rc = st.session_state.reset_counter
+        dx = st.sidebar.slider("Delta X (mm)", -20.0, 20.0, value=0.0, key=f"dx_{rc}", step=0.05)
+        dy = st.sidebar.slider("Delta Y (mm)", -20.0, 20.0, value=0.0, key=f"dy_{rc}", step=0.05)
+        dz = st.sidebar.slider("Delta Z (mm)", -20.0, 20.0, value=0.0, key=f"dz_{rc}", step=0.05)
+        
+        rx = st.sidebar.slider("Rotazione A (°)", -45.0, 45.0, value=0.0, key=f"rx_{rc}", step=0.1)
+        ry = st.sidebar.slider("Rotazione B (°)", -45.0, 45.0, value=0.0, key=f"ry_{rc}", step=0.1)
+        rz = st.sidebar.slider("Rotazione C (°)", -45.0, 45.0, value=0.0, key=f"rz_{rc}", step=0.1)
 
         # Estrazione coordinate di base
         target_pts = df[['Target_X', 'Target_Y', 'Target_Z']].values
