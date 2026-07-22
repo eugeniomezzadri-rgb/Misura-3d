@@ -12,10 +12,14 @@ from fpdf import FPDF
 st.set_page_config(page_title="Report CMM Best-Fit 3D", layout="wide")
 st.title("Report CMM Best-Fit 3D")
 
-# --- INIZIALIZZAZIONE STATO SLIDER ---
+# --- INIZIALIZZAZIONE STATO ---
 for k in ['dx', 'dy', 'dz', 'rx', 'ry', 'rz']:
     if k not in st.session_state:
         st.session_state[k] = 0.0
+
+for k in ['en_dx', 'en_dy', 'en_dz', 'en_rx', 'en_ry', 'en_rz']:
+    if k not in st.session_state:
+        st.session_state[k] = True  # Di default tutti gli assi sono abilitati
 
 if 'last_uploaded_file' not in st.session_state:
     st.session_state.last_uploaded_file = None
@@ -30,9 +34,6 @@ def azzera_slider():
     st.session_state.rz = 0.0
 
 def cb_best_fit(df_local):
-    """
-    Allineamento Best-Fit ottimizzato e ultrarapido basato su Kabsch / SVD ridotta
-    """
     target_pts = df_local[['Target_X', 'Target_Y', 'Target_Z']].values
     raw_real_pts = df_local[['Real_X', 'Real_Y', 'Real_Z']].values
     
@@ -51,15 +52,16 @@ def cb_best_fit(df_local):
     rot_matrix = Vt.T @ U.T
     
     r = R.from_matrix(rot_matrix)
-    rx, ry, rz = r.as_euler('xyz', degrees=True)
-    dx, dy, dz = centroid_target - centroid_real
+    rx_full, ry_full, rz_full = r.as_euler('xyz', degrees=True)
+    dx_full, dy_full, dz_full = centroid_target - centroid_real
     
-    st.session_state.dx = float(dx)
-    st.session_state.dy = float(dy)
-    st.session_state.dz = float(dz)
-    st.session_state.rx = float(rx)
-    st.session_state.ry = float(ry)
-    st.session_state.rz = float(rz)
+    # Applica i risultati solo se l'asse corrispondente è spuntato/abilitato
+    st.session_state.dx = float(dx_full) if st.session_state.en_dx else 0.0
+    st.session_state.dy = float(dy_full) if st.session_state.en_dy else 0.0
+    st.session_state.dz = float(dz_full) if st.session_state.en_dz else 0.0
+    st.session_state.rx = float(rx_full) if st.session_state.en_rx else 0.0
+    st.session_state.ry = float(ry_full) if st.session_state.en_ry else 0.0
+    st.session_state.rz = float(rz_full) if st.session_state.en_rz else 0.0
 
 def cb_reset():
     azzera_slider()
@@ -117,7 +119,6 @@ def load_data(file_obj):
 # --- GENERAZIONE PDF ---
 def genera_pdf(df_tabella, fig, errore_rms, dx, dy, dz, rx, ry, rz, nome_file="Report_CMM"):
     try:
-        # Validazione sicura dei valori numerici per evitare scritte "None"
         dx = float(dx) if dx is not None else 0.0
         dy = float(dy) if dy is not None else 0.0
         dz = float(dz) if dz is not None else 0.0
@@ -243,22 +244,43 @@ if uploaded_file is not None:
         col_b2.button("Reset", on_click=cb_reset)
 
         st.sidebar.markdown("---")
-        st.sidebar.header("🎛️ Aggiustamenti & Visualizzazione")
-        dx = st.sidebar.slider("Delta X (mm)", -20.0, 20.0, key="dx", step=0.0005, format="%.4f")
-        dy = st.sidebar.slider("Delta Y (mm)", -20.0, 20.0, key="dy", step=0.0005, format="%.4f")
-        dz = st.sidebar.slider("Delta Z (mm)", -20.0, 20.0, key="dz", step=0.0005, format="%.4f")
-        rx = st.sidebar.slider("Rotazione A (°)", -45.0, 45.0, key="rx", step=0.001, format="%.3f")
-        ry = st.sidebar.slider("Rotazione B (°)", -45.0, 45.0, key="ry", step=0.001, format="%.3f")
-        rz = st.sidebar.slider("Rotazione C (°)", -45.0, 45.0, key="rz", step=0.001, format="%.3f")
+        st.sidebar.header("🎛️ Aggiustamenti & Assi Abilitati")
+        
+        # Layout con checkbox per abilitare/disabilitare i singoli assi nel Best-Fit e nei controlli
+        col_ax1, col_ax2 = st.sidebar.columns(2)
+        with col_ax1:
+            st.checkbox("Abilita X", key="en_dx")
+            st.checkbox("Abilita Y", key="en_dy")
+            st.checkbox("Abilita Z", key="en_dz")
+        with col_ax2:
+            st.checkbox("Abilita Rot A", key="en_rx")
+            st.checkbox("Abilita Rot B", key="en_ry")
+            st.checkbox("Abilita Rot C", key="en_rz")
+
+        # Se un asse viene disabilitato manualmente dall'utente, blocchiamo il suo slider a 0
+        dx = st.sidebar.slider("Delta X (mm)", -20.0, 20.0, key="dx", step=0.0005, format="%.4f", disabled=not st.session_state.en_dx)
+        dy = st.sidebar.slider("Delta Y (mm)", -20.0, 20.0, key="dy", step=0.0005, format="%.4f", disabled=not st.session_state.en_dy)
+        dz = st.sidebar.slider("Delta Z (mm)", -20.0, 20.0, key="dz", step=0.0005, format="%.4f", disabled=not st.session_state.en_dz)
+        rx = st.sidebar.slider("Rotazione A (°)", -45.0, 45.0, key="rx", step=0.001, format="%.3f", disabled=not st.session_state.en_rx)
+        ry = st.sidebar.slider("Rotazione B (°)", -45.0, 45.0, key="ry", step=0.001, format="%.3f", disabled=not st.session_state.en_ry)
+        rz = st.sidebar.slider("Rotazione C (°)", -45.0, 45.0, key="rz", step=0.001, format="%.3f", disabled=not st.session_state.en_rz)
+
+        # Se l'asse è disabilitato forziamo il valore a zero nei calcoli geometrici
+        val_dx = dx if st.session_state.en_dx else 0.0
+        val_dy = dy if st.session_state.en_dy else 0.0
+        val_dz = dz if st.session_state.en_dz else 0.0
+        val_rx = rx if st.session_state.en_rx else 0.0
+        val_ry = ry if st.session_state.en_ry else 0.0
+        val_rz = rz if st.session_state.en_rz else 0.0
 
         # --- CALCOLI GEOMETRICI ---
         target_pts = df[['Target_X', 'Target_Y', 'Target_Z']].values
         raw_real_pts = df[['Real_X', 'Real_Y', 'Real_Z']].values
 
         centroid = np.mean(raw_real_pts, axis=0)
-        r = R.from_euler('xyz', [rx, ry, rz], degrees=True)
+        r = R.from_euler('xyz', [val_rx, val_ry, val_rz], degrees=True)
         
-        real_pts = (r.apply(raw_real_pts - centroid) + centroid) + np.array([dx, dy, dz])
+        real_pts = (r.apply(raw_real_pts - centroid) + centroid) + np.array([val_dx, val_dy, val_dz])
 
         errori_3d = np.linalg.norm(target_pts - real_pts, axis=1)
         errore_rms = np.sqrt(np.mean(errori_3d ** 2))
@@ -312,8 +334,8 @@ if uploaded_file is not None:
                     df_tabella=df_tabella, 
                     fig=fig, 
                     errore_rms=errore_rms, 
-                    dx=dx, dy=dy, dz=dz, 
-                    rx=rx, ry=ry, rz=rz, 
+                    dx=val_dx, dy=val_dy, dz=val_dz, 
+                    rx=val_rx, ry=val_ry, rz=val_rz, 
                     nome_file=uploaded_file.name
                 )
                 if pdf_bytes:
