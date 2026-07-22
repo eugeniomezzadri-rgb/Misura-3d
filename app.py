@@ -202,7 +202,6 @@ if uploaded_file is not None:
     else:
         df = df_raw.copy()
 
-        # Normalizzazione colonne
         rename_map = {}
         for c in df.columns:
             cl = str(c).strip().lower()
@@ -233,13 +232,13 @@ if uploaded_file is not None:
         st.sidebar.markdown("---")
         st.sidebar.header("🎛️ Assi Abilitati per Best-Fit")
         
-        # Checkbox disposte verticalmente per garantire un'ampia area di tocco su smartphone
-        st.sidebar.checkbox("Abilita Asse X", key="en_x")
-        st.sidebar.checkbox("Abilita Asse Y", key="en_y")
-        st.sidebar.checkbox("Abilita Asse Z", key="en_z")
-        st.sidebar.checkbox("Abilita Rotazione Rx", key="en_rx")
-        st.sidebar.checkbox("Abilita Rotazione Ry", key="en_ry")
-        st.sidebar.checkbox("Abilita Rotazione Rz", key="en_rz")
+        # SOSTITUITI I CHECKBOX CON I TOGGLE (Interruttori stile smartphone)
+        st.sidebar.toggle("Abilita Asse X", key="en_x")
+        st.sidebar.toggle("Abilita Asse Y", key="en_y")
+        st.sidebar.toggle("Abilita Asse Z", key="en_z")
+        st.sidebar.toggle("Abilita Rotazione Rx", key="en_rx")
+        st.sidebar.toggle("Abilita Rotazione Ry", key="en_ry")
+        st.sidebar.toggle("Abilita Rotazione Rz", key="en_rz")
 
         st.sidebar.markdown("---")
         st.sidebar.header("🎚️ Regolazione Manuale")
