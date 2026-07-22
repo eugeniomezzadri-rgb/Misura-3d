@@ -19,7 +19,7 @@ for k in ['dx', 'dy', 'dz', 'rx', 'ry', 'rz']:
 
 for k in ['en_dx', 'en_dy', 'en_dz', 'en_rx', 'en_ry', 'en_rz']:
     if k not in st.session_state:
-        st.session_state[k] = True  # Di default tutti gli assi sono abilitati
+        st.session_state[k] = True
 
 if 'last_uploaded_file' not in st.session_state:
     st.session_state.last_uploaded_file = None
@@ -55,7 +55,7 @@ def cb_best_fit(df_local):
     rx_full, ry_full, rz_full = r.as_euler('xyz', degrees=True)
     dx_full, dy_full, dz_full = centroid_target - centroid_real
     
-    # Applica i risultati solo se l'asse corrispondente è spuntato/abilitato
+    # Assegna i valori solo se l'asse è abilitato dalla relativa checkbox
     st.session_state.dx = float(dx_full) if st.session_state.en_dx else 0.0
     st.session_state.dy = float(dy_full) if st.session_state.en_dy else 0.0
     st.session_state.dz = float(dz_full) if st.session_state.en_dz else 0.0
@@ -246,7 +246,7 @@ if uploaded_file is not None:
         st.sidebar.markdown("---")
         st.sidebar.header("🎛️ Aggiustamenti & Assi Abilitati")
         
-        # Layout con checkbox per abilitare/disabilitare i singoli assi nel Best-Fit e nei controlli
+        # Checkbox per attivare/disattivare gli assi (senza disabilitare gli slider per compatibilità mobile)
         col_ax1, col_ax2 = st.sidebar.columns(2)
         with col_ax1:
             st.checkbox("Abilita X", key="en_dx")
@@ -257,15 +257,15 @@ if uploaded_file is not None:
             st.checkbox("Abilita Rot B", key="en_ry")
             st.checkbox("Abilita Rot C", key="en_rz")
 
-        # Se un asse viene disabilitato manualmente dall'utente, blocchiamo il suo slider a 0
-        dx = st.sidebar.slider("Delta X (mm)", -20.0, 20.0, key="dx", step=0.0005, format="%.4f", disabled=not st.session_state.en_dx)
-        dy = st.sidebar.slider("Delta Y (mm)", -20.0, 20.0, key="dy", step=0.0005, format="%.4f", disabled=not st.session_state.en_dy)
-        dz = st.sidebar.slider("Delta Z (mm)", -20.0, 20.0, key="dz", step=0.0005, format="%.4f", disabled=not st.session_state.en_dz)
-        rx = st.sidebar.slider("Rotazione A (°)", -45.0, 45.0, key="rx", step=0.001, format="%.3f", disabled=not st.session_state.en_rx)
-        ry = st.sidebar.slider("Rotazione B (°)", -45.0, 45.0, key="ry", step=0.001, format="%.3f", disabled=not st.session_state.en_ry)
-        rz = st.sidebar.slider("Rotazione C (°)", -45.0, 45.0, key="rz", step=0.001, format="%.3f", disabled=not st.session_state.en_rz)
+        # Slider sempre attivi e fluidi su qualsiasi dispositivo
+        dx = st.sidebar.slider("Delta X (mm)", -20.0, 20.0, key="dx", step=0.0005, format="%.4f")
+        dy = st.sidebar.slider("Delta Y (mm)", -20.0, 20.0, key="dy", step=0.0005, format="%.4f")
+        dz = st.sidebar.slider("Delta Z (mm)", -20.0, 20.0, key="dz", step=0.0005, format="%.4f")
+        rx = st.sidebar.slider("Rotazione A (°)", -45.0, 45.0, key="rx", step=0.001, format="%.3f")
+        ry = st.sidebar.slider("Rotazione B (°)", -45.0, 45.0, key="ry", step=0.001, format="%.3f")
+        rz = st.sidebar.slider("Rotazione C (°)", -45.0, 45.0, key="rz", step=0.001, format="%.3f")
 
-        # Se l'asse è disabilitato forziamo il valore a zero nei calcoli geometrici
+        # Filtro logico: se la checkbox è disattivata, il valore viene forzato a zero nei calcoli
         val_dx = dx if st.session_state.en_dx else 0.0
         val_dy = dy if st.session_state.en_dy else 0.0
         val_dz = dz if st.session_state.en_dz else 0.0
