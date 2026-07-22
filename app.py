@@ -13,19 +13,11 @@ st.set_page_config(page_title="Report CMM Best-Fit 3D", layout="wide")
 st.title("Report CMM Best-Fit 3D")
 
 # --- INIZIALIZZAZIONE STATO ---
-if 'dx' not in st.session_state: st.session_state.dx = 0.0
-if 'dy' not in st.session_state: st.session_state.dy = 0.0
-if 'dz' not in st.session_state: st.session_state.dz = 0.0
-if 'rx' not in st.session_state: st.session_state.rx = 0.0
-if 'ry' not in st.session_state: st.session_state.ry = 0.0
-if 'rz' not in st.session_state: st.session_state.rz = 0.0
+for k in ['dx', 'dy', 'dz', 'rx', 'ry', 'rz']:
+    if k not in st.session_state: st.session_state[k] = 0.0
 
-if 'en_x' not in st.session_state: st.session_state.en_x = True
-if 'en_y' not in st.session_state: st.session_state.en_y = True
-if 'en_z' not in st.session_state: st.session_state.en_z = True
-if 'en_rx' not in st.session_state: st.session_state.en_rx = True
-if 'en_ry' not in st.session_state: st.session_state.en_ry = True
-if 'en_rz' not in st.session_state: st.session_state.en_rz = True
+for k in ['en_x', 'en_y', 'en_z', 'en_rx', 'en_ry', 'en_rz']:
+    if k not in st.session_state: st.session_state[k] = True
 
 if 'last_uploaded_file' not in st.session_state:
     st.session_state.last_uploaded_file = None
@@ -60,7 +52,6 @@ def esegui_best_fit(df_local):
     rx_full, ry_full, rz_full = r.as_euler('xyz', degrees=True)
     dx_full, dy_full, dz_full = centroid_target - centroid_real
     
-    # Assegna i valori calcolati solo se il rispettivo asse è abilitato
     st.session_state.dx = float(dx_full) if st.session_state.en_x else 0.0
     st.session_state.dy = float(dy_full) if st.session_state.en_y else 0.0
     st.session_state.dz = float(dz_full) if st.session_state.en_z else 0.0
@@ -236,23 +227,19 @@ if uploaded_file is not None:
         st.sidebar.markdown("---")
         st.sidebar.header("🎯 Best-Fit & Reset")
         col_b1, col_b2 = st.sidebar.columns(2)
-        
         col_b1.button("Esegui Best-Fit", on_click=esegui_best_fit, args=(df,))
         col_b2.button("Reset", on_click=azzera_valori)
 
         st.sidebar.markdown("---")
         st.sidebar.header("🎛️ Assi Abilitati per Best-Fit")
         
-        # Checkbox indipendenti ottimizzate per dispositivi mobili
-        c1, c2, c3 = st.sidebar.columns(3)
-        c1.checkbox("X", key="en_x")
-        c2.checkbox("Y", key="en_y")
-        c3.checkbox("Z", key="en_z")
-
-        c4, c5, c6 = st.sidebar.columns(3)
-        c4.checkbox("Rx", key="en_rx")
-        c5.checkbox("Ry", key="en_ry")
-        c6.checkbox("Rz", key="en_rz")
+        # Checkbox disposte verticalmente per garantire un'ampia area di tocco su smartphone
+        st.sidebar.checkbox("Abilita Asse X", key="en_x")
+        st.sidebar.checkbox("Abilita Asse Y", key="en_y")
+        st.sidebar.checkbox("Abilita Asse Z", key="en_z")
+        st.sidebar.checkbox("Abilita Rotazione Rx", key="en_rx")
+        st.sidebar.checkbox("Abilita Rotazione Ry", key="en_ry")
+        st.sidebar.checkbox("Abilita Rotazione Rz", key="en_rz")
 
         st.sidebar.markdown("---")
         st.sidebar.header("🎚️ Regolazione Manuale")
