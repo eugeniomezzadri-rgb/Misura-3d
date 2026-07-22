@@ -13,19 +13,25 @@ st.set_page_config(page_title="Report CMM Best-Fit 3D", layout="wide")
 st.title("Report CMM Best-Fit 3D")
 
 # --- INIZIALIZZAZIONE STATO ---
-for k in ['dx', 'dy', 'dz', 'rx', 'ry', 'rz']:
-    if k not in st.session_state:
-        st.session_state[k] = 0.0
+if 'dx' not in st.session_state: st.session_state.dx = 0.0
+if 'dy' not in st.session_state: st.session_state.dy = 0.0
+if 'dz' not in st.session_state: st.session_state.dz = 0.0
+if 'rx' not in st.session_state: st.session_state.rx = 0.0
+if 'ry' not in st.session_state: st.session_state.ry = 0.0
+if 'rz' not in st.session_state: st.session_state.rz = 0.0
 
-for k in ['en_dx', 'en_dy', 'en_dz', 'en_rx', 'en_ry', 'en_rz']:
-    if k not in st.session_state:
-        st.session_state[k] = True
+if 'en_x' not in st.session_state: st.session_state.en_x = True
+if 'en_y' not in st.session_state: st.session_state.en_y = True
+if 'en_z' not in st.session_state: st.session_state.en_z = True
+if 'en_rx' not in st.session_state: st.session_state.en_rx = True
+if 'en_ry' not in st.session_state: st.session_state.en_ry = True
+if 'en_rz' not in st.session_state: st.session_state.en_rz = True
 
 if 'last_uploaded_file' not in st.session_state:
     st.session_state.last_uploaded_file = None
 
-# --- CALLBACKS PER I PULSANTI ---
-def azzera_slider():
+# --- FUNZIONI DI AZZERAMENTO ---
+def azzera_valori():
     st.session_state.dx = 0.0
     st.session_state.dy = 0.0
     st.session_state.dz = 0.0
@@ -33,7 +39,7 @@ def azzera_slider():
     st.session_state.ry = 0.0
     st.session_state.rz = 0.0
 
-def cb_best_fit(df_local):
+def esegui_best_fit(df_local):
     target_pts = df_local[['Target_X', 'Target_Y', 'Target_Z']].values
     raw_real_pts = df_local[['Real_X', 'Real_Y', 'Real_Z']].values
     
@@ -50,23 +56,19 @@ def cb_best_fit(df_local):
         Vt[-1, :] *= -1
         
     rot_matrix = Vt.T @ U.T
-    
     r = R.from_matrix(rot_matrix)
     rx_full, ry_full, rz_full = r.as_euler('xyz', degrees=True)
     dx_full, dy_full, dz_full = centroid_target - centroid_real
     
-    # Assegna i valori solo se l'asse è abilitato dalla relativa checkbox
-    st.session_state.dx = float(dx_full) if st.session_state.en_dx else 0.0
-    st.session_state.dy = float(dy_full) if st.session_state.en_dy else 0.0
-    st.session_state.dz = float(dz_full) if st.session_state.en_dz else 0.0
+    # Assegna i valori calcolati solo se il rispettivo asse è abilitato
+    st.session_state.dx = float(dx_full) if st.session_state.en_x else 0.0
+    st.session_state.dy = float(dy_full) if st.session_state.en_y else 0.0
+    st.session_state.dz = float(dz_full) if st.session_state.en_z else 0.0
     st.session_state.rx = float(rx_full) if st.session_state.en_rx else 0.0
     st.session_state.ry = float(ry_full) if st.session_state.en_ry else 0.0
     st.session_state.rz = float(rz_full) if st.session_state.en_rz else 0.0
 
-def cb_reset():
-    azzera_slider()
-
-# --- FUNZIONI DI SUPPORTO GEOMETRICO ---
+# --- SUPPORTO GEOMETRICO & PARSER ---
 def create_sphere_mesh(x, y, z, radius=0.5, color='blue', n_subdiv=10):
     phi = np.linspace(0, np.pi, n_subdiv)
     theta = np.linspace(0, 2 * np.pi, n_subdiv)
@@ -100,7 +102,6 @@ def parse_cmm_txt(content_str):
             })
     return pd.DataFrame(data)
 
-# --- CARICAMENTO E CACHING DATI ---
 @st.cache_data
 def load_data(file_obj):
     file_obj.seek(0)
@@ -119,14 +120,10 @@ def load_data(file_obj):
 # --- GENERAZIONE PDF ---
 def genera_pdf(df_tabella, fig, errore_rms, dx, dy, dz, rx, ry, rz, nome_file="Report_CMM"):
     try:
-        dx = float(dx) if dx is not None else 0.0
-        dy = float(dy) if dy is not None else 0.0
-        dz = float(dz) if dz is not None else 0.0
-        rx = float(rx) if rx is not None else 0.0
-        ry = float(ry) if ry is not None else 0.0
-        rz = float(rz) if rz is not None else 0.0
-        errore_rms = float(errore_rms) if errore_rms is not None else 0.0
-        nome_file = str(nome_file) if nome_file else "Report_CMM"
+        dx, dy, dz = float(dx or 0), float(dy or 0), float(dz or 0)
+        rx, ry, rz = float(rx or 0), float(ry or 0), float(rz or 0)
+        errore_rms = float(errore_rms or 0)
+        nome_file = str(nome_file or "Report_CMM")
 
         pdf = FPDF(orientation="L", unit="mm", format="A4")
         pdf.set_auto_page_break(auto=False, margin=0)
@@ -196,7 +193,7 @@ def genera_pdf(df_tabella, fig, errore_rms, dx, dy, dz, rx, ry, rz, nome_file="R
 
         return bytes(pdf.output())
     except Exception as e:
-        st.error(f"Errore generazione PDF. Assicurati che 'kaleido' sia installato (`pip install kaleido`). Dettaglio: {e}")
+        st.error(f"Errore generazione PDF: {e}")
         return None
 
 # --- UI PRINCIPALE ---
@@ -204,7 +201,7 @@ uploaded_file = st.file_uploader("Carica il file dei dati CMM", type=["csv", "xl
 
 if uploaded_file is not None:
     if st.session_state.last_uploaded_file != uploaded_file.name:
-        azzera_slider()
+        azzera_valori()
         st.session_state.last_uploaded_file = uploaded_file.name
 
     df_raw = load_data(uploaded_file)
@@ -240,35 +237,37 @@ if uploaded_file is not None:
         st.sidebar.header("🎯 Best-Fit & Reset")
         col_b1, col_b2 = st.sidebar.columns(2)
         
-        col_b1.button("Esegui Best-Fit", on_click=cb_best_fit, args=(df,))
-        col_b2.button("Reset", on_click=cb_reset)
+        col_b1.button("Esegui Best-Fit", on_click=esegui_best_fit, args=(df,))
+        col_b2.button("Reset", on_click=azzera_valori)
 
         st.sidebar.markdown("---")
-        st.sidebar.header("🎛️ Aggiustamenti & Assi Abilitati")
+        st.sidebar.header("🎛️ Assi Abilitati per Best-Fit")
         
-        # Checkbox per attivare/disattivare gli assi (senza disabilitare gli slider per compatibilità mobile)
-        col_ax1, col_ax2 = st.sidebar.columns(2)
-        with col_ax1:
-            st.checkbox("Abilita X", key="en_dx")
-            st.checkbox("Abilita Y", key="en_dy")
-            st.checkbox("Abilita Z", key="en_dz")
-        with col_ax2:
-            st.checkbox("Abilita Rot A", key="en_rx")
-            st.checkbox("Abilita Rot B", key="en_ry")
-            st.checkbox("Abilita Rot C", key="en_rz")
+        # Checkbox indipendenti ottimizzate per dispositivi mobili
+        c1, c2, c3 = st.sidebar.columns(3)
+        c1.checkbox("X", key="en_x")
+        c2.checkbox("Y", key="en_y")
+        c3.checkbox("Z", key="en_z")
 
-        # Slider sempre attivi e fluidi su qualsiasi dispositivo
+        c4, c5, c6 = st.sidebar.columns(3)
+        c4.checkbox("Rx", key="en_rx")
+        c5.checkbox("Ry", key="en_ry")
+        c6.checkbox("Rz", key="en_rz")
+
+        st.sidebar.markdown("---")
+        st.sidebar.header("🎚️ Regolazione Manuale")
+        
         dx = st.sidebar.slider("Delta X (mm)", -20.0, 20.0, key="dx", step=0.0005, format="%.4f")
         dy = st.sidebar.slider("Delta Y (mm)", -20.0, 20.0, key="dy", step=0.0005, format="%.4f")
         dz = st.sidebar.slider("Delta Z (mm)", -20.0, 20.0, key="dz", step=0.0005, format="%.4f")
-        rx = st.sidebar.slider("Rotazione A (°)", -45.0, 45.0, key="rx", step=0.001, format="%.3f")
-        ry = st.sidebar.slider("Rotazione B (°)", -45.0, 45.0, key="ry", step=0.001, format="%.3f")
-        rz = st.sidebar.slider("Rotazione C (°)", -45.0, 45.0, key="rz", step=0.001, format="%.3f")
+        rx = st.sidebar.slider("Rotazione X (°)", -45.0, 45.0, key="rx", step=0.001, format="%.3f")
+        ry = st.sidebar.slider("Rotazione Y (°)", -45.0, 45.0, key="ry", step=0.001, format="%.3f")
+        rz = st.sidebar.slider("Rotazione Z (°)", -45.0, 45.0, key="rz", step=0.001, format="%.3f")
 
-        # Filtro logico: se la checkbox è disattivata, il valore viene forzato a zero nei calcoli
-        val_dx = dx if st.session_state.en_dx else 0.0
-        val_dy = dy if st.session_state.en_dy else 0.0
-        val_dz = dz if st.session_state.en_dz else 0.0
+        # Applicazione filtro di esclusione assi
+        val_dx = dx if st.session_state.en_x else 0.0
+        val_dy = dy if st.session_state.en_y else 0.0
+        val_dz = dz if st.session_state.en_z else 0.0
         val_rx = rx if st.session_state.en_rx else 0.0
         val_ry = ry if st.session_state.en_ry else 0.0
         val_rz = rz if st.session_state.en_rz else 0.0
