@@ -17,7 +17,6 @@ for k in ['dx', 'dy', 'dz', 'rx', 'ry', 'rz']:
     if k not in st.session_state:
         st.session_state[k] = 0.0
 
-# Tracciamento del file precedente per rilevare un nuovo caricamento
 if 'last_uploaded_file' not in st.session_state:
     st.session_state.last_uploaded_file = None
 
@@ -31,6 +30,9 @@ def azzera_slider():
     st.session_state.rz = 0.0
 
 def cb_best_fit(df_local):
+    """
+    Allineamento Best-Fit ottimizzato e ultrarapido basato su Kabsch / SVD ridotta
+    """
     target_pts = df_local[['Target_X', 'Target_Y', 'Target_Z']].values
     raw_real_pts = df_local[['Real_X', 'Real_Y', 'Real_Z']].values
     
@@ -115,6 +117,16 @@ def load_data(file_obj):
 # --- GENERAZIONE PDF ---
 def genera_pdf(df_tabella, fig, errore_rms, dx, dy, dz, rx, ry, rz, nome_file="Report_CMM"):
     try:
+        # Validazione sicura dei valori numerici per evitare scritte "None"
+        dx = float(dx) if dx is not None else 0.0
+        dy = float(dy) if dy is not None else 0.0
+        dz = float(dz) if dz is not None else 0.0
+        rx = float(rx) if rx is not None else 0.0
+        ry = float(ry) if ry is not None else 0.0
+        rz = float(rz) if rz is not None else 0.0
+        errore_rms = float(errore_rms) if errore_rms is not None else 0.0
+        nome_file = str(nome_file) if nome_file else "Report_CMM"
+
         pdf = FPDF(orientation="L", unit="mm", format="A4")
         pdf.set_auto_page_break(auto=False, margin=0)
         pdf.add_page()
@@ -190,7 +202,6 @@ def genera_pdf(df_tabella, fig, errore_rms, dx, dy, dz, rx, ry, rz, nome_file="R
 uploaded_file = st.file_uploader("Carica il file dei dati CMM", type=["csv", "xlsx", "txt"])
 
 if uploaded_file is not None:
-    # Controlla se è stato caricato un file nuovo rispetto al precedente
     if st.session_state.last_uploaded_file != uploaded_file.name:
         azzera_slider()
         st.session_state.last_uploaded_file = uploaded_file.name
